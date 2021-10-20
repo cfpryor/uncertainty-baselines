@@ -314,7 +314,7 @@ def main(argv):
   ood_ds = {}
   if config.get('ood_datasets') and config.get('ood_methods'):
     if config.get('ood_methods'):  #  config.ood_methods is not a empty list
-      logging.info('loading OOD dataset = %s', config.get('ood_dataset'))
+      logging.info('loading OOD dataset = %s', config.get('ood_datasets'))
       ood_ds, ood_ds_names = ood_utils.load_ood_datasets(
           config.dataset,
           config.ood_datasets,
@@ -546,6 +546,7 @@ def main(argv):
 
     params, _ = jax.tree_flatten(opt.target)
     measurements['l2_params'] = jnp.sqrt(sum([jnp.vdot(p, p) for p in params]))
+    measurements['reset_covmat'] = reset_covmat
 
     return opt, s, l, rng, measurements
 
@@ -617,7 +618,7 @@ def main(argv):
       map(lr_fn, range(total_steps)), config.get('prefetch_to_device', 1))
 
   # Prepare the precision matrix resetting schedule, and pre-fetch it to device.
-  reset_covmat_fn = lambda step: float(step % steps_per_epoch == 0)
+  reset_covmat_fn = lambda step: float(step % int(steps_per_epoch) == 0)
   reset_covmat_iter = train_utils.prefetch_scalar(
       map(reset_covmat_fn, range(first_step, total_steps)),
       nprefetch=config.get('prefetch_to_device', 1))
