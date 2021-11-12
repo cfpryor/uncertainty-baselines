@@ -27,13 +27,13 @@ from models import abstract_psl_model
 
 
 def satisfy_weights(model, data: tf.Tensor, labels: tf.Tensor,
-                    weights: List[tf.Tensor], constraints: abstract_psl_model.PSLModel,
+                    weights: List[tf.Tensor], constrained_model: abstract_psl_model.PSLModel,
                     grad_steps: int, alpha: float):
     """Update weights by satisfing test constraints."""
     for _ in range(grad_steps):
         with tf.GradientTape() as tape:
             logits = model(data, training=False)
-            constraint_loss = constraints.compute_loss(data, logits)
+            constraint_loss = constrained_model.compute_loss(data, logits)
             weight_loss = tf.reduce_sum([
                 tf.reduce_mean(tf.math.squared_difference(w, w_h))
                 for w, w_h in zip(weights, model.weights)
@@ -59,7 +59,7 @@ def copy_model_weights(weights: List[tf.Tensor]) -> List[tf.Tensor]:
 
 
 def test_step(model, data: tf.Tensor, labels: tf.Tensor,
-              constraints: abstract_psl_model.PSLModel, grad_steps: int,
+              constrained_model: abstract_psl_model.PSLModel, grad_steps: int,
               alpha: float) -> tf.Tensor:
     """Test step for gradient based weight updates.
 
@@ -82,7 +82,7 @@ def test_step(model, data: tf.Tensor, labels: tf.Tensor,
         data,
         labels,
         weights=weights_copy,
-        constraints=constraints,
+        constrained_model=constrained_model,
         grad_steps=grad_steps,
         alpha=alpha)
 
@@ -95,19 +95,19 @@ def test_step(model, data: tf.Tensor, labels: tf.Tensor,
     return logits
 
 
-def evaluate_constrained_model(model,
-                               dataset: tf.Tensor,
-                               constraints: abstract_psl_model.PSLModel,
-                               grad_steps: int = 10,
-                               alpha: float = 0.1) -> List[tf.Tensor]:
-    """Custom evaluation step."""
+def predict(model,
+            dataset: tf.Tensor,
+            constrained_model: abstract_psl_model.PSLModel,
+            grad_steps: int = 10,
+            alpha: float = 0.1) -> List[tf.Tensor]:
+    """Custom predict step using gradient decoding."""
     logits = []
     for x_batch, y_batch in dataset:
         batch_logits = test_step(
             model,
             x_batch,
             y_batch,
-            constraints=constraints,
+            constrained_model=constrained_model,
             grad_steps=grad_steps,
             alpha=alpha)
         logits.append(batch_logits)

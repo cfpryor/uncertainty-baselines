@@ -10,16 +10,14 @@
 
 # Lint as: python3
 
-import json
 import logging
 import os
 import random
 import sys
 
-import numpy as np
 import tensorflow as tf
 
-import inference.gradient_decoding as inference_application
+import inference.gradient_decoding as gradient_decoding
 import scripts.logs as logs
 import scripts.multiwoz_synthetic_data_util as data_util
 import scripts.multiwoz_synthetic_gradient_decoding_util as gradient_decoding_util
@@ -29,21 +27,30 @@ import models.multiwoz_synthetic.psl_model as psl_model
 _SEED_RANGE = 10000000
 
 
-def non_constrained_learning(train_ds, learning_rate, config):
-    model = build_model([config['max_dialog_size'], config['max_utterance_size']], learning_rate=learning_rate)
+def build_non_constrained_model(learning_rate, config):
+    return build_model([config['max_dialog_size'], config['max_utterance_size']], learning_rate=learning_rate)
+
+
+def non_constrained_learning(model, train_ds, config):
     model.fit(train_ds, epochs=config['train_epochs'])
 
-    return model
+
+def non_constrained_inference(model, test_ds):
+    return model.predict(test_ds)
 
 
-def non_constrained_inference(model, test_ds, test_labels, config):
-    logits = model.predict(test_ds)
-    predictions = tf.math.argmax(logits, axis=-1)
+def build_constrained_model(rule_weights, rule_names, config):
+    return psl_model.PSLModelMultiWoZ(rule_weights, rule_names, config=config)
 
-    confusion_matrix = util.class_confusion_matrix(predictions, test_labels, config)
-    metrics, cat_accuracy = util.print_metrics(confusion_matrix)
 
-    return model, metrics, cat_accuracy
+def constrained_inference(model, constrained_model, test_ds, alpha, grad_step):
+    return gradient_decoding.predict(model, test_ds, constrained_model, alpha=alpha, grad_steps=grad_step)
+
+
+def calculate_metrics(logits, labels, config):
+    predictions = tf.math.argmax(tf.concat(logits, axis=0), axis=-1)
+    confusion_matrix = util.class_confusion_matrix(predictions, labels, config)
+    util.print_metrics(confusion_matrix)
 
 
 def build_model(input_size, learning_rate=0.001):
@@ -93,13 +100,33 @@ def main(data_path):
     train_ds, test_ds = gradient_decoding_util.prepare_dataset(data, config)
     logging.info('End: Preparing Dataset')
 
+    logging.info('Building Non-Constrained Model')
+    model = build_non_constrained_model(0.0001, config)
+
     logging.info('Begin: Non-Constrained Model Learning')
-    model = non_constrained_learning(train_ds, 0.0001, config)
+    non_constrained_learning(model, train_ds, config)
     logging.info('End: Non-Constrained Model Learning')
 
     logging.info('Begin: Non-Constrained Model Inference')
-    model, metrics, cat = non_constrained_inference(model, test_ds, data['train_truth_dialog'], config)
+    logits = non_constrained_inference(model, test_ds)
     logging.info('End: Non-Constrained Model Inference')
+
+    logging.info('Begin: Non-Constrained Model Analysis')
+    calculate_metrics(logits, data['test_truth_dialog'], config)
+    logging.info('End: Non-Constrained Model Analysis')
+
+    logging.info('Building Constrained Model')
+    rule_weights = gradient_decoding_util.RULE_WEIGHTS
+    rule_names = gradient_decoding_util.RULE_NAMES
+    constrained_model = build_constrained_model(rule_weights, rule_names, config)
+
+    logging.info('Begin: Constrained Model Inference')
+    logits = constrained_inference(model, constrained_model, test_ds, 0.1, 25)
+    logging.info('End: Constrained Model Inference')
+
+    logging.info('Begin: Constrained Model Analysis')
+    calculate_metrics(logits, data['test_truth_dialog'], config)
+    logging.info('End: Constrained Model Analysis')
 
 
 def _load_args(args):
