@@ -1,0 +1,4 @@
+# Ignore data and ide files.
+data
+.idea
+colabs/.ipynb_checkpoints/
