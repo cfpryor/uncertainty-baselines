@@ -21,11 +21,6 @@ import tensorflow as tf
 # Other Constants
 SEED = 4
 
-# Constraint Constants
-RULE_WEIGHTS = [1.0, 20.0, 5.0, 5.0, 5.0, 10.0, 5.0, 20.0, 5.0, 5.0, 5.0, 10.0]
-RULE_NAMES = ('rule_1', 'rule_2', 'rule_3', 'rule_4', 'rule_5', 'rule_6',
-              'rule_7', 'rule_8', 'rule_9', 'rule_10', 'rule_11', 'rule_12')
-
 # Inference Constants
 ALPHA = 0.1
 GRAD_STEPS = 25

@@ -18,9 +18,9 @@
 
 import tensorflow as tf
 import scripts.multiwoz_synthetic.data_util as data_util
-import models.multiwoz_synthetic.psl_model as psl_model
 import models.multiwoz_synthetic.psl_model_test_util as test_util
 
+from models.multiwoz_synthetic.psl_model import PSLModelMultiWoZ
 from inference.constrained_gradient_decoding import ConstrainedGradientDecoding
 
 
@@ -28,37 +28,44 @@ class PslRulesTest(tf.test.TestCase):
 
     def setUp(self):
         super(PslRulesTest, self).setUp()
+        # Load data
         self.config = test_util.DATA_CONFIG
         self.data = test_util.DATA
         self.features = test_util.FEATURES
         self.logits = tf.constant(test_util.LOGITS)
+
+        # Load parameters
         self.seed = test_util.SEED
-        self.epochs = test_util.TRAINING_EPOCHS
         self.alpha = test_util.ALPHA
         self.grad_steps = test_util.GRAD_STEPS
-
-        self.train_ds, self.test_ds = data_util.prepare_dataset(self.data, self.config)
-        self.constraints = psl_model.PSLModelMultiWoZ([], [], config=self.config)
-        self.inference = ConstrainedGradientDecoding(None, None, alpha=self.alpha, grad_steps=self.grad_steps)
+        self.epochs = test_util.TRAINING_EPOCHS
         self.model_shape = [self.config['max_dialog_size'], self.config['max_utterance_size']]
 
+        # Build dataset, constraints, and inference application
+        self.train_ds, self.test_ds = data_util.prepare_dataset(self.data, self.config)
+        self.constraints = PSLModelMultiWoZ([], [], config=self.config)
+        self.inference = ConstrainedGradientDecoding(None, None, alpha=self.alpha, grad_steps=self.grad_steps)
+
+        # Seed randomness
         tf.random.set_seed(self.seed)
 
     def _run_model(self, rule_names, weights):
+        # Set rule functions and rule weights
         self.constraints.set_rule_functions(self.constraints, rule_names)
         self.constraints.set_rule_weights(self.constraints, weights)
-        self.inference.set_constraints(self.inference, self.constraints)
 
+        # Set constraints and a fresh neural model
         model = test_util.build_model(self.model_shape)
         model.fit(self.train_ds, epochs=self.epochs)
+        self.inference.set_constraints(self.inference, self.constraints)
         self.inference.set_model(self.inference, model)
 
+        # Run constrained inference
         logits = self.inference.predict(self.test_ds)
         return tf.math.argmax(logits[0], axis=-1)
 
     def test_psl_rule_1_run_model(self):
         predictions = self._run_model(['rule_1'], [1.0])
-
         self.assertNotEqual(predictions[1][1], self.config['class_map']['greet'])
         self.assertNotEqual(predictions[1][2], self.config['class_map']['greet'])
         self.assertNotEqual(predictions[2][1], self.config['class_map']['greet'])
