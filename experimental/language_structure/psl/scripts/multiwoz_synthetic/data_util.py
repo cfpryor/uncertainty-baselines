@@ -34,6 +34,56 @@ UserSystem = List[Utterance]
 Dialog = List[UserSystem]
 
 
+def _prepare_dataset_helper(raw_data, raw_labels, vocab_mapping, training, config):
+    data = add_features(
+        raw_data,
+        vocab_mapping=vocab_mapping,
+        accept_words=config['accept_words'],
+        cancel_words=config['cancel_words'],
+        end_words=config['end_words'],
+        greet_words=config['greet_words'],
+        info_question_words=config['info_question_words'],
+        insist_words=config['insist_words'],
+        slot_question_words=config['slot_question_words'],
+        includes_word=config['includes_word'],
+        excludes_word=config['excludes_word'],
+        accept_index=config['accept_index'],
+        cancel_index=config['cancel_index'],
+        end_index=config['end_index'],
+        greet_index=config['greet_index'],
+        info_question_index=config['info_question_index'],
+        insist_index=config['insist_index'],
+        slot_question_index=config['slot_question_index'],
+        utterance_mask=config['utterance_mask'],
+        pad_utterance_mask=config['pad_utterance_mask'],
+        last_utterance_mask=config['last_utterance_mask'],
+        mask_index=config['mask_index'])
+    data = pad_dialogs(data,
+                       config['max_dialog_size'],
+                       config['max_utterance_size'])
+    labels = one_hot_string_encoding(raw_labels,
+                                     config['class_map'])
+    labels = pad_one_hot_labels(labels,
+                                config['max_dialog_size'],
+                                config['class_map'])
+    return list_to_dataset(data[0], labels[0], training, config['batch_size'])
+
+
+def prepare_dataset(data, config):
+    """Prepares the train and test datasets."""
+    train_ds = _prepare_dataset_helper(data['train_data'],
+                                       data['train_truth_dialog'],
+                                       data['vocab_mapping'],
+                                       True, config)
+
+    test_ds = _prepare_dataset_helper(data['test_data'],
+                                      data['test_truth_dialog'],
+                                      data['vocab_mapping'],
+                                      False, config)
+
+    return train_ds, test_ds
+
+
 def _annotate_if_contains_words(utterance: List[int], key_words: List[str],
                                 vocab_mapping: Dict[str, int], word_index: int,
                                 excludes_word: int,

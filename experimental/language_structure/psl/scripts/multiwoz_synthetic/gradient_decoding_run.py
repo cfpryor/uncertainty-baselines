@@ -19,65 +19,23 @@ import tensorflow as tf
 
 import inference.gradient_decoding as gradient_decoding
 import scripts.logs as logs
-import scripts.multiwoz_synthetic_data_util as data_util
-import scripts.multiwoz_synthetic_gradient_decoding_util as gradient_decoding_util
-import scripts.util as util
+import scripts.multiwoz_synthetic.data_util as data_util
+import scripts.multiwoz_synthetic.evaluation_util as eval_util
+import scripts.multiwoz_synthetic.gradient_decoding_util as gradient_decoding_util
 import models.multiwoz_synthetic.psl_model as psl_model
 
 _SEED_RANGE = 10000000
 
 
-def build_non_constrained_model(learning_rate, config):
-    return build_model([config['max_dialog_size'], config['max_utterance_size']], learning_rate=learning_rate)
-
-
-def non_constrained_learning(model, train_ds, config):
-    model.fit(train_ds, epochs=config['train_epochs'])
-
-
-def non_constrained_inference(model, test_ds):
-    return model.predict(test_ds)
-
-
-def build_constrained_model(rule_weights, rule_names, config):
-    return psl_model.PSLModelMultiWoZ(rule_weights, rule_names, config=config)
-
-
-def constrained_inference(model, constrained_model, test_ds, alpha, grad_step):
-    return gradient_decoding.predict(model, test_ds, constrained_model, alpha=alpha, grad_steps=grad_step)
-
-
 def calculate_metrics(logits, labels, config):
     predictions = tf.math.argmax(tf.concat(logits, axis=0), axis=-1)
-    confusion_matrix = util.class_confusion_matrix(predictions, labels, config)
-    util.print_metrics(confusion_matrix)
-
-
-def build_model(input_size, learning_rate=0.001):
-    """Build simple neural model for class prediction."""
-    input_layer = tf.keras.layers.Input(input_size)
-    hidden_layer_1 = tf.keras.layers.Dense(1024)(input_layer)
-    hidden_layer_2 = tf.keras.layers.Dense(
-        512, activation='sigmoid')(
-        hidden_layer_1)
-    output = tf.keras.layers.Dense(
-        9, activation='softmax',
-        kernel_regularizer=tf.keras.regularizers.l2(1.0))(
-        hidden_layer_2)
-
-    model = tf.keras.Model(input_layer, output)
-
-    model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
-        loss='categorical_crossentropy',
-        metrics=['accuracy'])
-
-    return model
+    confusion_matrix = eval_util.class_confusion_matrix(predictions, labels, config)
+    eval_util.print_metrics(confusion_matrix)
 
 
 def setup(data_path):
     """Loads data and sets seed."""
-    config = gradient_decoding_util.CONFIG
+    config = gradient_decoding_util.DATA_CONFIG
     seed = random.randint(-_SEED_RANGE, _SEED_RANGE)
     logging.info('Seed: %d' % (seed,))
     tf.random.set_seed(seed)
@@ -97,18 +55,19 @@ def main(data_path):
     data, config = setup(data_path)
 
     logging.info('Begin: Preparing Dataset')
-    train_ds, test_ds = gradient_decoding_util.prepare_dataset(data, config)
+    train_ds, test_ds = data_util.prepare_dataset(data, config)
     logging.info('End: Preparing Dataset')
 
     logging.info('Building Non-Constrained Model')
-    model = build_non_constrained_model(0.0001, config)
+    model = gradient_decoding_util.build_model([config['max_dialog_size'], config['max_utterance_size']])
 
     logging.info('Begin: Non-Constrained Model Learning')
-    non_constrained_learning(model, train_ds, config)
+    training_epochs = gradient_decoding_util.TRAINING_EPOCHS
+    model.fit(train_ds, epochs=training_epochs)
     logging.info('End: Non-Constrained Model Learning')
 
     logging.info('Begin: Non-Constrained Model Inference')
-    logits = non_constrained_inference(model, test_ds)
+    logits = model.predict(test_ds)
     logging.info('End: Non-Constrained Model Inference')
 
     logging.info('Begin: Non-Constrained Model Analysis')
@@ -118,10 +77,13 @@ def main(data_path):
     logging.info('Building Constrained Model')
     rule_weights = gradient_decoding_util.RULE_WEIGHTS
     rule_names = gradient_decoding_util.RULE_NAMES
-    constrained_model = build_constrained_model(rule_weights, rule_names, config)
+    constraints = psl_model.PSLModelMultiWoZ(rule_weights, rule_names, config=config)
 
     logging.info('Begin: Constrained Model Inference')
-    logits = constrained_inference(model, constrained_model, test_ds, 0.1, 25)
+    alpha = gradient_decoding_util.ALPHA
+    grad_steps = gradient_decoding_util.GRAD_STEPS
+    inference_application = gradient_decoding.GradientDecoding(model, constraints, alpha=alpha, grad_steps=grad_steps)
+    logits = inference_application.predict(test_ds)
     logging.info('End: Constrained Model Inference')
 
     logging.info('Begin: Constrained Model Analysis')

@@ -18,7 +18,7 @@
 
 import tensorflow as tf
 from inference import gradient_decoding as eval_model
-from scripts import multiwoz_synthetic_data_util
+from scripts.multiwoz_synthetic import data_util
 from models.multiwoz_synthetic import psl_model as model, psl_model_test_util as test_util
 
 
@@ -31,7 +31,7 @@ class PslRulesTest(tf.test.TestCase):
 
         tf.random.set_seed(self.config['default_seed'])
 
-        train_dialogs = multiwoz_synthetic_data_util.add_features(
+        train_dialogs = data_util.add_features(
             self.data['train_data'],
             vocab_mapping=self.data['vocab_mapping'],
             accept_words=self.config['accept_words'],
@@ -54,18 +54,18 @@ class PslRulesTest(tf.test.TestCase):
             pad_utterance_mask=self.config['pad_utterance_mask'],
             last_utterance_mask=self.config['last_utterance_mask'],
             mask_index=self.config['mask_index'])
-        train_data = multiwoz_synthetic_data_util.pad_dialogs(train_dialogs, self.config['max_dialog_size'],
-                                                              self.config['max_utterance_size'])
-        raw_train_labels = multiwoz_synthetic_data_util.one_hot_string_encoding(self.data['train_labels'],
-                                                                                self.config['class_map'])
-        train_labels = multiwoz_synthetic_data_util.pad_one_hot_labels(raw_train_labels,
-                                                                       self.config['max_dialog_size'],
-                                                                       self.config['class_map'])
-        self.train_ds = multiwoz_synthetic_data_util.list_to_dataset(train_data[0], train_labels[0],
-                                                                     self.config['shuffle_train'],
-                                                                     self.config['batch_size'])
+        train_data = data_util.pad_dialogs(train_dialogs, self.config['max_dialog_size'],
+                                           self.config['max_utterance_size'])
+        raw_train_labels = data_util.one_hot_string_encoding(self.data['train_labels'],
+                                                             self.config['class_map'])
+        train_labels = data_util.pad_one_hot_labels(raw_train_labels,
+                                                    self.config['max_dialog_size'],
+                                                    self.config['class_map'])
+        self.train_ds = data_util.list_to_dataset(train_data[0], train_labels[0],
+                                                  self.config['shuffle_train'],
+                                                  self.config['batch_size'])
 
-        test_dialogs = multiwoz_synthetic_data_util.add_features(
+        test_dialogs = data_util.add_features(
             self.data['test_data'],
             vocab_mapping=self.data['vocab_mapping'],
             accept_words=self.config['accept_words'],
@@ -88,16 +88,16 @@ class PslRulesTest(tf.test.TestCase):
             pad_utterance_mask=self.config['pad_utterance_mask'],
             last_utterance_mask=self.config['last_utterance_mask'],
             mask_index=self.config['mask_index'])
-        test_data = multiwoz_synthetic_data_util.pad_dialogs(test_dialogs, self.config['max_dialog_size'],
-                                                             self.config['max_utterance_size'])
-        raw_test_labels = multiwoz_synthetic_data_util.one_hot_string_encoding(self.data['test_labels'],
-                                                                               self.config['class_map'])
-        self.test_labels = multiwoz_synthetic_data_util.pad_one_hot_labels(raw_test_labels,
-                                                                           self.config['max_dialog_size'],
-                                                                           self.config['class_map'])
-        self.test_ds = multiwoz_synthetic_data_util.list_to_dataset(test_data[0], self.test_labels[0],
-                                                                    self.config['shuffle_test'],
-                                                                    self.config['batch_size'])
+        test_data = data_util.pad_dialogs(test_dialogs, self.config['max_dialog_size'],
+                                          self.config['max_utterance_size'])
+        raw_test_labels = data_util.one_hot_string_encoding(self.data['test_labels'],
+                                                            self.config['class_map'])
+        self.test_labels = data_util.pad_one_hot_labels(raw_test_labels,
+                                                        self.config['max_dialog_size'],
+                                                        self.config['class_map'])
+        self.test_ds = data_util.list_to_dataset(test_data[0], self.test_labels[0],
+                                                 self.config['shuffle_test'],
+                                                 self.config['batch_size'])
 
     def check_greet(self, predictions, mask, class_map):
         for dialog_pred, dialog_mask in zip(predictions, mask):

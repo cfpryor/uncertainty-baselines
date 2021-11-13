@@ -14,105 +14,91 @@
 # limitations under the License.
 
 # Lint as: python3
-"""Constrained gradient updates during inference.
+"""Constrained gradient decoding.
 
 File consists of:
-- Gradient updates during evaluation
+- Gradient updates during inference
 """
 
 from typing import List
 
 import tensorflow as tf
-from models import abstract_psl_model
+from inference import abstract_inference_application
 
 
-def satisfy_weights(model, data: tf.Tensor, labels: tf.Tensor,
-                    weights: List[tf.Tensor], constrained_model: abstract_psl_model.PSLModel,
-                    grad_steps: int, alpha: float):
-    """Update weights by satisfing test constraints."""
-    for _ in range(grad_steps):
-        with tf.GradientTape() as tape:
-            logits = model(data, training=False)
-            constraint_loss = constrained_model.compute_loss(data, logits)
-            weight_loss = tf.reduce_sum([
-                tf.reduce_mean(tf.math.squared_difference(w, w_h))
-                for w, w_h in zip(weights, model.weights)
-            ])
-            loss = constraint_loss + alpha * weight_loss
+class GradientDecoding(abstract_inference_application.AbstractInferenceApplication):
+    """Constrained gradient decoding."""
 
-        trainable_vars = model.trainable_variables
-        gradients = tape.gradient(loss, trainable_vars)
+    def __init__(self, model, constraints, **kwargs) -> None:
+        super().__init__(model, constraints, **kwargs)
 
-        model.optimizer.apply_gradients(zip(gradients, trainable_vars))
-        model.compiled_metrics.update_state(labels, logits)
+        if 'alpha' not in kwargs:
+            raise KeyError('Missing argument: alpha')
+        if 'grad_steps' not in kwargs:
+            raise KeyError('Missing argument: grad_steps')
+        self.alpha = kwargs['alpha']
+        self.grad_steps = kwargs['grad_steps']
 
-    return model
+        self.weights_copy = []
+        self.logits = []
 
+    def predict(self, dataset: tf.Tensor) -> List[tf.Tensor]:
+        """Constrained prediction using gradient decoding."""
+        self.clear_logits()
+        self.copy_weights()
+        for data_batch, label_batch in dataset:
+            self.logits.append(self.batch_predict(data_batch, label_batch))
+        self.clear_weights_copy()
 
-def copy_model_weights(weights: List[tf.Tensor]) -> List[tf.Tensor]:
-    """Copies a list of model weights."""
-    weights_copy = []
-    for layer in weights:
-        weights_copy.append(tf.identity(layer))
+        return self.logits
 
-    return weights_copy
+    def batch_predict(self, data: tf.Tensor, labels: tf.Tensor) -> tf.Tensor:
+        """Batch constrained prediction using gradient decoding.
 
+          Args:
+            data: input features
+            labels: ground truth labels
 
-def test_step(model, data: tf.Tensor, labels: tf.Tensor,
-              constrained_model: abstract_psl_model.PSLModel, grad_steps: int,
-              alpha: float) -> tf.Tensor:
-    """Test step for gradient based weight updates.
+          Returns:
+            Logits for a batch.
+        """
+        self.satisfy_constraints(data, labels)
 
-      Args:
-        model: tensorflow model being run
-        data: input features
-        labels: ground truth labels
-        constraints: differentable psl constraints
-        grad_steps: number of gradient steps taken to try and satisfy the
-          constraints
-        alpha: parameter to determine how important it is to keep the constrained
-          weights close to the trained unconstrained weights
+        batch_logits = self.model(data, training=False)
+        self.model.compiled_loss(labels, batch_logits)
+        self.model.compiled_metrics.update_state(labels, batch_logits)
 
-      Returns:
-        Logits after satisfiying constraints.
-      """
-    weights_copy = copy_model_weights(model.get_weights())
-    model = satisfy_weights(
-        model,
-        data,
-        labels,
-        weights=weights_copy,
-        constrained_model=constrained_model,
-        grad_steps=grad_steps,
-        alpha=alpha)
+        self.reset_weights()
 
-    logits = model(data, training=False)
-    model.compiled_loss(labels, logits)
-    model.compiled_metrics.update_state(labels, logits)
+        return batch_logits
 
-    model.set_weights(weights_copy)
+    def satisfy_constraints(self, data: tf.Tensor, labels: tf.Tensor,):
+        """Update weights to satisfy constraints while staying close to original weights."""
+        for _ in range(self.grad_steps):
+            with tf.GradientTape() as tape:
+                logits = self.model(data, training=False)
+                constraint_loss = self.constraints.compute_loss(data, logits)
+                weight_loss = tf.reduce_sum([
+                    tf.reduce_mean(tf.math.squared_difference(w, w_h))
+                    for w, w_h in zip(self.weights_copy, self.model.weights)
+                ])
+                loss = constraint_loss + self.alpha * weight_loss
 
-    return logits
+            gradients = tape.gradient(loss, self.model.trainable_variables)
 
+            self.model.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
+            self.model.compiled_metrics.update_state(labels, logits)
 
-def predict(model,
-            dataset: tf.Tensor,
-            constrained_model: abstract_psl_model.PSLModel,
-            grad_steps: int = 10,
-            alpha: float = 0.1) -> List[tf.Tensor]:
-    """Custom predict step using gradient decoding."""
-    logits = []
-    for x_batch, y_batch in dataset:
-        batch_logits = test_step(
-            model,
-            x_batch,
-            y_batch,
-            constrained_model=constrained_model,
-            grad_steps=grad_steps,
-            alpha=alpha)
-        logits.append(batch_logits)
+    def copy_weights(self):
+        """Copies model weights."""
+        for layer in self.model.weights:
+            self.weights_copy.append(tf.identity(layer))
 
-    for metric in model.metrics:
-        tf.print(metric, metric.result())
+    def reset_weights(self):
+        self.model.set_weights(self.weights_copy)
 
-    return logits
+    def clear_logits(self):
+        self.logits = []
+
+    def clear_weights_copy(self):
+        self.weights_copy = []
