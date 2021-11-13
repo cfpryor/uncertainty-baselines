@@ -13,16 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Abstract class for inference applications."""
+"""Abstract class for learning applications."""
 
 import abc
-from typing import List
+from typing import List, Tuple
 
 import tensorflow as tf
 
 
-class AbstractInferenceApplication(abc.ABC):
-    """Abstract class for inference applications."""
+class AbstractLearningApplication(abc.ABC):
+    """Abstract class for learning applications."""
 
     def __init__(self, model, constraints, **kwargs) -> None:
         self.model = model
@@ -30,9 +30,9 @@ class AbstractInferenceApplication(abc.ABC):
         self.kwargs = kwargs
 
     @abc.abstractmethod
-    def predict(self, dataset) -> List[tf.Tensor]:
+    def fit(self, dataset) -> List[tf.Tensor]:
         pass
 
     @abc.abstractmethod
-    def batch_predict(self, data: tf.Tensor, labels: tf.Tensor) -> tf.Tensor:
+    def batch_fit(self, data: tf.Tensor, labels: tf.Tensor) -> tf.Tensor:
         pass

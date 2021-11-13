@@ -19,14 +19,13 @@
 File consists of:
 - Gradient updates during inference
 """
-
 from typing import List
 
 import tensorflow as tf
 from inference import abstract_inference_application
 
 
-class GradientDecoding(abstract_inference_application.AbstractInferenceApplication):
+class ConstrainedGradientDecoding(abstract_inference_application.AbstractInferenceApplication):
     """Constrained gradient decoding."""
 
     def __init__(self, model, constraints, **kwargs) -> None:
@@ -44,11 +43,12 @@ class GradientDecoding(abstract_inference_application.AbstractInferenceApplicati
 
     def predict(self, dataset: tf.Tensor) -> List[tf.Tensor]:
         """Constrained prediction using gradient decoding."""
-        self.clear_logits()
-        self.copy_weights()
+        self.logits.clear()
+        self._copy_weights()
+
         for data_batch, label_batch in dataset:
             self.logits.append(self.batch_predict(data_batch, label_batch))
-        self.clear_weights_copy()
+        self.weights_copy.clear()
 
         return self.logits
 
@@ -68,7 +68,7 @@ class GradientDecoding(abstract_inference_application.AbstractInferenceApplicati
         self.model.compiled_loss(labels, batch_logits)
         self.model.compiled_metrics.update_state(labels, batch_logits)
 
-        self.reset_weights()
+        self._reset_weights()
 
         return batch_logits
 
@@ -89,16 +89,10 @@ class GradientDecoding(abstract_inference_application.AbstractInferenceApplicati
             self.model.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
             self.model.compiled_metrics.update_state(labels, logits)
 
-    def copy_weights(self):
+    def _copy_weights(self):
         """Copies model weights."""
         for layer in self.model.weights:
             self.weights_copy.append(tf.identity(layer))
 
-    def reset_weights(self):
+    def _reset_weights(self):
         self.model.set_weights(self.weights_copy)
-
-    def clear_logits(self):
-        self.logits = []
-
-    def clear_weights_copy(self):
-        self.weights_copy = []

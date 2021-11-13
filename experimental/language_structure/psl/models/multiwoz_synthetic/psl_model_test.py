@@ -17,7 +17,7 @@
 """Tests for MultiWoz rules."""
 
 import tensorflow as tf
-from inference import gradient_decoding as eval_model
+from inference import constrained_gradient_decoding as eval_model
 from scripts.multiwoz_synthetic import data_util
 from models.multiwoz_synthetic import psl_model as model, psl_model_test_util as test_util
 

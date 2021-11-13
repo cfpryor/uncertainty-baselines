@@ -17,16 +17,15 @@
 """Constrained beam search decoding.
 
 File consists of:
-- Gradient updates during inference
+-
 """
-
 from typing import List
 
 import tensorflow as tf
 from inference import abstract_inference_application
 
 
-class GradientDecoding(abstract_inference_application.AbstractInferenceApplication):
+class ConstrainedBeamSearchDecoding(abstract_inference_application.AbstractInferenceApplication):
     """Constrained beam search decoding."""
 
     def __init__(self, model, constraints, **kwargs) -> None:
@@ -35,7 +34,7 @@ class GradientDecoding(abstract_inference_application.AbstractInferenceApplicati
 
     def predict(self, dataset: tf.Tensor) -> List[tf.Tensor]:
         """Constrained prediction using beam search decoding."""
-        self.clear_beams()
+        self.beams.clear()
         for data_batch, label_batch in dataset:
             self.beams.append(self.batch_predict(data_batch, label_batch))
 
@@ -53,6 +52,3 @@ class GradientDecoding(abstract_inference_application.AbstractInferenceApplicati
         """
         batch_beams = None
         return batch_beams
-
-    def clear_beams(self):
-        self.beams = []

@@ -32,4 +32,4 @@ differentiable constraints.
 
 **MultiWoZ Synthetic Gradient Decoding:**
 
-`python3 -m scripts.multiwoz_synthetic_gradient_decoding_run path/to/data`
+`python3 -m scripts.multiwoz_synthetic.gradient_decoding_run path/to/data`

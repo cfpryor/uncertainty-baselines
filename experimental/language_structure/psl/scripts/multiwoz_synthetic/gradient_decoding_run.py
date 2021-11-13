@@ -17,7 +17,7 @@ import sys
 
 import tensorflow as tf
 
-import inference.gradient_decoding as gradient_decoding
+import inference.constrained_gradient_decoding as gradient_decoding
 import scripts.logs as logs
 import scripts.multiwoz_synthetic.data_util as data_util
 import scripts.multiwoz_synthetic.evaluation_util as eval_util
@@ -82,7 +82,7 @@ def main(data_path):
     logging.info('Begin: Constrained Model Inference')
     alpha = gradient_decoding_util.ALPHA
     grad_steps = gradient_decoding_util.GRAD_STEPS
-    inference_application = gradient_decoding.GradientDecoding(model, constraints, alpha=alpha, grad_steps=grad_steps)
+    inference_application = gradient_decoding.ConstrainedGradientDecoding(model, constraints, alpha=alpha, grad_steps=grad_steps)
     logits = inference_application.predict(test_ds)
     logging.info('End: Constrained Model Inference')
 
