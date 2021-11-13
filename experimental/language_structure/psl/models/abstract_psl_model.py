@@ -212,3 +212,11 @@ class PSLModel(abc.ABC):
         if transpose:
             predicate_matrix = tf.transpose(predicate_matrix, perm=[0, 2, 1])
         return predicate_matrix
+
+    @staticmethod
+    def set_rule_functions(self, rule_names: List[str]) -> None:
+        self.rule_functions = [getattr(self, rule_name) for rule_name in rule_names]
+
+    @staticmethod
+    def set_rule_weights(self, rule_weights: List[float]) -> None:
+        self.rule_weights = rule_weights

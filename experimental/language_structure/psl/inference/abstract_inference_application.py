@@ -36,3 +36,11 @@ class AbstractInferenceApplication(abc.ABC):
     @abc.abstractmethod
     def batch_predict(self, data: tf.Tensor, labels: tf.Tensor) -> tf.Tensor:
         pass
+
+    @staticmethod
+    def set_constraints(self, constraints):
+        self.constraints = constraints
+
+    @staticmethod
+    def set_model(self, model):
+        self.model = model

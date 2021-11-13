@@ -97,7 +97,7 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
           dialog_size: the length of the dialog
 
         Returns:
-          A cross product matrix mask containing the previoius statements.
+          A cross product matrix mask containing the previous statements.
         """
         off_diagonal_matrix = tf.linalg.diag([1.0] * (dialog_size - 1), k=1)
 
@@ -154,7 +154,7 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
           dialog_size: the length of the dialog
 
         Returns:
-          A cross product matrix mask containing the previoius statements.
+          A cross product matrix mask containing the next statements.
         """
         off_diagonal_matrix = tf.linalg.diag([1.0] * (dialog_size - 1), k=-1)
 
@@ -184,7 +184,7 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
           THEN: the utterance should not be a greetings.
 
         Args:
-          logits: logits outputed by a neural model.
+          logits: logits outputted by a neural model.
 
         Returns:
           A loss incurred by this dialog structure rule.
@@ -192,7 +192,7 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
 
         batch_size, dialog_size, _ = logits.shape
 
-        # Creates predicates for differentable potentals.
+        # Creates predicates for differentiable potentials.
         first_statement = self._first_statement(batch_size, dialog_size)
         state_greet = self._get_tensor_column(logits, self.class_map['greet'],
                                               batch_size)
@@ -207,11 +207,11 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
           FirstStatement(S) & HasGreetWord(S) -> State(S, 'greet')
 
         Meaning:
-          IF: the first utterance does conatin a common greet word.
+          IF: the first utterance does contain a common greet word.
           THEN: the utterance should be a greetings.
 
         Args:
-          logits: logits outputed by a neural model.
+          logits: logits outputted by a neural model.
           data: input features used to produce the logits.
 
         Returns:
@@ -219,7 +219,7 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
         """
         batch_size, dialog_size, _ = logits.shape
 
-        # Creates predicates for differentable potentals.
+        # Creates predicates for differentiable potentials.
         first_statement = self._first_statement(batch_size, dialog_size)
         has_greet_word = self._has_word(data, batch_size, 'greet_index')
         state_greet = self._get_tensor_column(logits, self.class_map['greet'],
@@ -235,11 +235,11 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
           FirstStatement(S) & !HasGreetWord(S) -> State(S, 'init_request')
 
         Meaning:
-          IF: the first utterance does not conatin a common greet word.
-          THEN: the utterance should be an inital request.
+          IF: the first utterance does not contain a common greet word.
+          THEN: the utterance should be an initial request.
 
         Args:
-          logits: logits outputed by a neural model.
+          logits: logits outputted by a neural model.
           data: input features used to produce the logits.
 
         Returns:
@@ -247,7 +247,7 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
         """
         batch_size, dialog_size, _ = logits.shape
 
-        # Creates predicates for differentable potentals.
+        # Creates predicates for differentiable potentials.
         first_statement = self._first_statement(batch_size, dialog_size)
         has_greet_word = self._has_word(data, batch_size, 'greet_index')
         state_init_request = self._get_tensor_column(logits,
@@ -271,11 +271,11 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
 
         Note:
           This rule requires a space complexity of O(max_dialog_size^2). A more
-          efficent implementation can be done with sparse operations, but currently
-          this is sufficent as the max dialog length is reasonable.
+          efficient implementation can be done with sparse operations, but currently
+          this is sufficient as the max dialog length is reasonable.
 
         Args:
-          logits: logits outputed by a neural model.
+          logits: logits outputted by a neural model.
           data: input features used to produce the logits.
 
         Returns:
@@ -283,7 +283,7 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
         """
         batch_size, dialog_size, _ = logits.shape
 
-        # Creates predicates for differentable potentals.
+        # Creates predicates for differentiable potentials.
 
         # Creates a (batch_size, dialog_size, dialog_size) cross product matrix
         # representing the previous statements. See docstring of _previous_statement
@@ -308,16 +308,16 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
                                                        -> !State(S1, 'init_request')
 
         Meaning:
-          IF: the previous utterancce is not a greetings.
+          IF: the previous utterance is not a greetings.
           THEN: the current utterance is not an initial request.
 
         Note:
           This rule requires a space complexity of O(max_dialog_size^2). A more
-          efficent implementation can be done with sparse operations, but currently
-          this is sufficent as the max dialog length is reasonable.
+          efficient implementation can be done with sparse operations, but currently
+          this is sufficient as the max dialog length is reasonable.
 
         Args:
-          logits: logits outputed by a neural model.
+          logits: logits outputted by a neural model.
           data: input features used to produce the logits.
 
         Returns:
@@ -325,7 +325,7 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
         """
         batch_size, dialog_size, _ = logits.shape
 
-        # Creates predicates for differentable potentals.
+        # Creates predicates for differentiable potentials.
 
         # Creates a (batch_size, dialog_size, dialog_size) cross product matrix
         # representing the previous statements. See docstring of _previous_statement
@@ -354,11 +354,11 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
 
         Note:
           This rule requires a space complexity of O(max_dialog_size^2). A more
-          efficent implementation can be done with sparse operations, but currently
-          this is sufficent as the max dialog length is reasonable.
+          efficient implementation can be done with sparse operations, but currently
+          this is sufficient as the max dialog length is reasonable.
 
         Args:
-          logits: logits outputed by a neural model.
+          logits: logits outputted by a neural model.
           data: input features used to produce the logits.
 
         Returns:
@@ -366,7 +366,7 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
         """
         batch_size, dialog_size, _ = logits.shape
 
-        # Creates predicates for differentable potentals.
+        # Creates predicates for differentiable potentials.
 
         # Creates a (batch_size, dialog_size, dialog_size) cross product matrix
         # representing the previous statements. See docstring of _previous_statement
@@ -388,11 +388,11 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
           LastStatement(S) & HasEndWord(S) -> State(S, 'end')
 
         Meaning:
-          IF: the last utterance contains a commen end word.
+          IF: the last utterance contains a common end word.
           THEN: the utterance should be an ending.
 
         Args:
-          logits: logits outputed by a neural model.
+          logits: logits outputted by a neural model.
           data: input features used to produce the logits.
 
         Returns:
@@ -400,7 +400,7 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
         """
         batch_size, _, _ = logits.shape
 
-        # Creates predicates for differentable potentals.
+        # Creates predicates for differentiable potentials.
         last_statement = self._end_statement(data, batch_size)
         has_end_word = self._has_word(data, batch_size, 'end_index')
         state_end = self._get_tensor_column(logits, self.class_map['end'],
@@ -416,11 +416,11 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
           LastStatement(S) & HasAcceptWord(S) -> State(S, 'accept')
 
         Meaning:
-          IF: the last utterance contains a commen accept word.
+          IF: the last utterance contains a common accept word.
           THEN: the utterance should be an acceptance.
 
         Args:
-          logits: logits outputed by a neural model.
+          logits: logits outputted by a neural model.
           data: input features used to produce the logits.
 
         Returns:
@@ -428,7 +428,7 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
         """
         batch_size, _, _ = logits.shape
 
-        # Creates predicates for differentable potentals.
+        # Creates predicates for differentiable potentials.
         last_statement = self._end_statement(data, batch_size)
         has_accept_word = self._has_word(data, batch_size, 'accept_index')
         state_accept = self._get_tensor_column(logits, self.class_map['accept'],
@@ -451,11 +451,11 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
 
         Note:
           This rule requires a space complexity of O(max_dialog_size^2). A more
-          efficent implementation can be done with sparse operations, but currently
-          this is sufficent as the max dialog length is reasonable.
+          efficient implementation can be done with sparse operations, but currently
+          this is sufficient as the max dialog length is reasonable.
 
         Args:
-          logits: logits outputed by a neural model.
+          logits: logits outputted by a neural model.
           data: input features used to produce the logits.
 
         Returns:
@@ -463,7 +463,7 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
         """
         batch_size, dialog_size, _ = logits.shape
 
-        # Creates predicates for differentable potentals.
+        # Creates predicates for differentiable potentials.
 
         # Creates a (batch_size, dialog_size, dialog_size) cross product matrix
         # representing the next statements. See docstring of _next_statement
@@ -493,8 +493,8 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
 
         Note:
           This rule requires a space complexity of O(max_dialog_size^2). A more
-          efficent implementation can be done with sparse operations, but currently
-          this is sufficent as the max dialog length is reasonable.
+          efficient implementation can be done with sparse operations, but currently
+          this is sufficient as the max dialog length is reasonable.
 
         Args:
           logits: logits outputed by a neural model.
@@ -505,7 +505,7 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
         """
         batch_size, dialog_size, _ = logits.shape
 
-        # Creates predicates for differentable potentals.
+        # Creates predicates for differentiable potentials.
 
         # Creates a (batch_size, dialog_size, dialog_size) cross product matrix
         # representing the next statements. See docstring of _next_statement
@@ -535,7 +535,7 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
           THEN: the utterance should be an insist.
 
         Args:
-          logits: logits outputed by a neural model.
+          logits: logits outputted by a neural model.
           data: input features used to produce the logits.
 
         Returns:
@@ -543,7 +543,7 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
         """
         batch_size, _, _ = logits.shape
 
-        # Creates predicates for differentable potentals.
+        # Creates predicates for differentiable potentials.
         last_statement = self._end_statement(data, batch_size)
         has_insist_word = self._has_word(data, batch_size, 'insist_index')
         state_insist = self._get_tensor_column(logits, self.class_map['insist'],
@@ -568,11 +568,11 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
 
         Note:
           This rule requires a space complexity of O(max_dialog_size^2). A more
-          efficent implementation can be done with sparse operations, but currently
-          this is sufficent as the max dialog length is reasonable.
+          efficient implementation can be done with sparse operations, but currently
+          this is sufficient as the max dialog length is reasonable.
 
         Args:
-          logits: logits outputed by a neural model.
+          logits: logits outputted by a neural model.
           data: input features used to produce the logits.
 
         Returns:
@@ -580,7 +580,7 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
         """
         batch_size, dialog_size, _ = logits.shape
 
-        # Creates predicates for differentable potentals.
+        # Creates predicates for differentiable potentials.
 
         # Creates a (batch_size, dialog_size, dialog_size) cross product matrix
         # representing the next statements. See docstring of _next_statement

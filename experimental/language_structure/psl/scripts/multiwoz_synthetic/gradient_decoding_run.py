@@ -18,11 +18,11 @@ import sys
 import tensorflow as tf
 
 import inference.constrained_gradient_decoding as gradient_decoding
+import models.multiwoz_synthetic.psl_model as psl_model
 import scripts.logs as logs
 import scripts.multiwoz_synthetic.data_util as data_util
 import scripts.multiwoz_synthetic.evaluation_util as eval_util
 import scripts.multiwoz_synthetic.gradient_decoding_util as gradient_decoding_util
-import models.multiwoz_synthetic.psl_model as psl_model
 
 _SEED_RANGE = 10000000
 
@@ -82,8 +82,8 @@ def main(data_path):
     logging.info('Begin: Constrained Model Inference')
     alpha = gradient_decoding_util.ALPHA
     grad_steps = gradient_decoding_util.GRAD_STEPS
-    inference_application = gradient_decoding.ConstrainedGradientDecoding(model, constraints, alpha=alpha, grad_steps=grad_steps)
-    logits = inference_application.predict(test_ds)
+    inference = gradient_decoding.ConstrainedGradientDecoding(model, constraints, alpha=alpha, grad_steps=grad_steps)
+    logits = inference.predict(test_ds)
     logging.info('End: Constrained Model Inference')
 
     logging.info('Begin: Constrained Model Analysis')

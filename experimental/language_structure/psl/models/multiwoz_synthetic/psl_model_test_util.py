@@ -16,9 +16,83 @@
 # Lint as: python3
 """Util file for psl rules test."""
 
-from typing import List
-
 import tensorflow as tf
+
+# Other Constants
+SEED = 4
+
+# Constraint Constants
+RULE_WEIGHTS = [1.0, 20.0, 5.0, 5.0, 5.0, 10.0, 5.0, 20.0, 5.0, 5.0, 5.0, 10.0]
+RULE_NAMES = ('rule_1', 'rule_2', 'rule_3', 'rule_4', 'rule_5', 'rule_6',
+              'rule_7', 'rule_8', 'rule_9', 'rule_10', 'rule_11', 'rule_12')
+
+# Inference Constants
+ALPHA = 0.1
+GRAD_STEPS = 25
+
+# Learning Constants
+TRAINING_EPOCHS = 5
+LEARNING_RATE = 0.001
+
+# Data Constants
+DATA_CONFIG = {
+    'batch_size': 128,
+    'max_dialog_size': 10,
+    'max_utterance_size': 40,
+    'class_map': {
+        'accept': 0,
+        'cancel': 1,
+        'end': 2,
+        'greet': 3,
+        'info_question': 4,
+        'init_request': 5,
+        'insist': 6,
+        'second_request': 7,
+        'slot_question': 8,
+    },
+    'accept_words': ['yes', 'great'],
+    'cancel_words': ['no'],
+    'end_words': ['thank', 'thanks'],
+    'greet_words': ['hello', 'hi'],
+    'info_question_words': ['address', 'phone'],
+    'insist_words': ['sure', 'no'],
+    'slot_question_words': ['what', '?'],
+    'includes_word': -1,
+    'excludes_word': -2,
+    'mask_index': 0,
+    'accept_index': 1,
+    'cancel_index': 2,
+    'end_index': 3,
+    'greet_index': 4,
+    'info_question_index': 5,
+    'insist_index': 6,
+    'slot_question_index': 7,
+    'utterance_mask': -1,
+    'last_utterance_mask': -2,
+    'pad_utterance_mask': -3,
+}
+
+
+def build_model(input_size, learning_rate=LEARNING_RATE):
+    """Build simple neural model for class prediction."""
+    input_layer = tf.keras.layers.Input(input_size)
+    hidden_layer_1 = tf.keras.layers.Dense(1024)(input_layer)
+    hidden_layer_2 = tf.keras.layers.Dense(
+        512, activation='sigmoid')(
+        hidden_layer_1)
+    output = tf.keras.layers.Dense(
+        9, activation='softmax',
+        kernel_regularizer=tf.keras.regularizers.l2(1.0))(
+        hidden_layer_2)
+
+    model = tf.keras.Model(input_layer, output)
+
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
+        loss='categorical_crossentropy',
+        metrics=['accuracy'])
+
+    return model
 
 LOGITS = [[[0.0, 0.0, 0.4, 0.4, 0.0, 0.2, 0.0, 0.0, 0.0],
            [0.0, 0.0, 0.2, 0.6, 0.0, 0.2, 0.0, 0.0, 0.0],
@@ -150,6 +224,7 @@ DATA = {
         ], [1109, 1304]]],
     ],
     'vocab_mapping': {
+        '?': 4,
         'address': 53,
         'thank': 525,
         'sure': 631,
@@ -157,82 +232,21 @@ DATA = {
         'hello': 764,
         'pricey': 1012,
         'hi': 1228,
+        'what': 1337,
         'great': 1490,
         'no': 1499,
         'phone': 1596,
         'thanks': 1718,
     },
-    'train_labels': [[
-        'init_request', 'second_request', 'second_request', 'second_request',
-        'second_request', 'insist'
-    ], ['init_request'], ['init_request'],
-                     ['init_request', 'second_request', 'cancel', 'end'],
-                     ['init_request']],
-    'test_labels': [['init_request'],
-                    ['init_request', 'slot_question', 'cancel'],
-                    ['init_request', 'second_request', 'cancel', 'end'],
-                    ['init_request']]
+    'train_truth_dialog': [['init_request', 'second_request', 'second_request',
+                            'second_request', 'second_request', 'insist'],
+                           ['init_request'],
+                           ['init_request'],
+                           ['init_request', 'second_request', 'cancel', 'end'],
+                           ['init_request']],
+    'test_truth_dialog': [['init_request'],
+                          ['init_request', 'slot_question', 'cancel'],
+                          ['init_request', 'second_request', 'cancel', 'end'],
+                          ['init_request']]
 }
 
-TEST_MULTIWOZ_CONFIG = {
-    'default_seed': 4,
-    'batch_size': 128,
-    'max_dialog_size': 10,
-    'max_utterance_size': 40,
-    'class_map': {
-        'accept': 0,
-        'cancel': 1,
-        'end': 2,
-        'greet': 3,
-        'info_question': 4,
-        'init_request': 5,
-        'insist': 6,
-        'second_request': 7,
-        'slot_question': 8,
-    },
-    'accept_words': ['yes', 'great'],
-    'cancel_words': ['no'],
-    'end_words': ['thank', 'thanks'],
-    'greet_words': ['hello', 'hi'],
-    'info_question_words': ['address', 'phone'],
-    'insist_words': ['sure', 'no'],
-    'slot_question_words': ['pricey'],
-    'includes_word': -1,
-    'excludes_word': -2,
-    'mask_index': 0,
-    'accept_index': 1,
-    'cancel_index': 2,
-    'end_index': 3,
-    'greet_index': 4,
-    'info_question_index': 5,
-    'insist_index': 6,
-    'slot_question_index': 7,
-    'utterance_mask': -1,
-    'last_utterance_mask': -2,
-    'pad_utterance_mask': -3,
-    'shuffle_train': True,
-    'shuffle_test': False,
-    'train_epochs': 5,
-}
-
-
-def build_constrained_model(input_size: List[int]) -> tf.keras.Model:
-  """Build simple neural model for class prediction."""
-  input_layer = tf.keras.layers.Input(input_size)
-  hidden_layer_1 = tf.keras.layers.Dense(1024)(input_layer)
-  hidden_layer_2 = tf.keras.layers.Dense(
-      512, activation='sigmoid')(
-          hidden_layer_1)
-  output = tf.keras.layers.Dense(
-      9, activation='softmax',
-      kernel_regularizer=tf.keras.regularizers.l2(1.0))(
-          hidden_layer_2)
-
-  model = tf.keras.Model(input_layer, output)
-
-  model.compile(
-      optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
-      loss='categorical_crossentropy',
-      metrics=['accuracy'])
-
-  return model
