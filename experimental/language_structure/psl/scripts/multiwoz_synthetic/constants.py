@@ -60,7 +60,7 @@ DATA_CONFIG = {
 
 KWARGS_DICT = {
     'inference.constrained_beam_search_decoding.ConstrainedBeamSearchDecoding':
-        {'beams': 3},
+        {'num_beams': 3},
     'inference.constrained_gradient_decoding.ConstrainedGradientDecoding':
         {'alpha': 0.1, 'grad_steps': 25},
     'inference.unconstrained_inference.UnconstrainedInference':
@@ -68,7 +68,7 @@ KWARGS_DICT = {
     'learning.constrained_regularized_learning.ConstrainedRegularizedLearning':
         {'epochs': 1},
     'learning.unconstrained_learning.UnconstrainedLearning':
-        {'epochs': 5},
+        {'epochs': 1},
     'models.multiwoz_synthetic.psl_model.PSLModelMultiWoZ':
         {'rule_weights': RULE_WEIGHTS, 'rule_names': RULE_NAMES, 'config': DATA_CONFIG},
     'scripts.multiwoz_synthetic.model_util':

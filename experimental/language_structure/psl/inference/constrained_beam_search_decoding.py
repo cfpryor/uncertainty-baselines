@@ -32,6 +32,11 @@ class ConstrainedBeamSearchDecoding(AbstractInferenceApplication):
 
     def __init__(self, model, constraints, **kwargs) -> None:
         super().__init__(model, constraints, **kwargs)
+
+        if 'num_beams' not in kwargs:
+            raise KeyError('Missing argument: alpha')
+        self.num_beams = kwargs['num_beams']
+
         self.beams = []
 
     def predict(self, dataset: tf.Tensor) -> List[tf.Tensor]:
@@ -63,5 +68,6 @@ class ConstrainedBeamSearchDecoding(AbstractInferenceApplication):
                     sequence, value = batch_beams[-1][index_i]
                     for index_j in range(len(distribution)):
                         candidates.append([sequence + [index_j], value - math.log(distribution[index_j])])
-                batch_beams[-1] = sorted(candidates, key=lambda seq: seq[1])[:self.beams]
+                ordered_candidates = sorted(candidates, key=lambda seq: seq[1])
+                batch_beams[-1] = ordered_candidates[:self.num_beams]
         return batch_beams
