@@ -14,33 +14,23 @@
 # limitations under the License.
 
 # Lint as: python3
-"""Constrained regularized learning.
-
-File consists of:
--
-"""
+"""Unconstrained learning."""
+from typing import List
 
 import tensorflow as tf
 from learning.abstract_learning_application import AbstractLearningApplication
 
 
-class ConstrainedRegularizedLearning(AbstractLearningApplication):
-    """Constrained regularized learning."""
+class UnconstrainedLearning(AbstractLearningApplication):
+    """Unconstrained learning."""
 
     def __init__(self, model, constraints, epochs, **kwargs) -> None:
         super().__init__(model, constraints, epochs, **kwargs)
 
-    def fit(self, dataset: tf.Tensor) -> None:
-        """Constrained learning using gradients."""
-        for _ in range(self.epochs):
-            for data_batch, label_batch in dataset:
-                self.batch_fit(data_batch, label_batch)
+    def fit(self, dataset) -> List[tf.Tensor]:
+        """Unconstrained fit."""
+        self.model.fit(dataset, epochs=self.epochs)
 
-    def batch_fit(self, data: tf.Tensor) -> None:
-        """Batch constrained learning using gradients.
-
-          Args:
-            data: input features
-            labels: ground truth labels
-        """
+    def batch_fit(self, data: tf.Tensor) -> tf.Tensor:
+        """Unconstrained batch fit."""
         pass

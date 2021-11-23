@@ -15,12 +15,19 @@
 
 # Lint as: python3
 
-"""File containing helper functions."""
+"""MultiWoZ Synthetic evaluation."""
 
-def class_confusion_matrix(preds, labels, config):
-    correct = 0
-    incorrect = 0
+import tensorflow as tf
 
+
+def evaluate(predictions, data, config):
+    labels = data['test_truth_dialog']
+    predictions = tf.math.argmax(tf.concat(predictions, axis=0), axis=-1)
+    confusion_matrix = _class_confusion_matrix(predictions, labels, config)
+    _print_metrics(confusion_matrix)
+
+
+def _class_confusion_matrix(preds, labels, config):
     class_map = config['class_map']
     reverse_class_map = {v: k for k, v in class_map.items()}
     class_confusion_matrix_dict = {key: {'tp': 0, 'tn': 0, 'fp': 0, 'fn': 0} for key, _ in class_map.items()}
@@ -43,7 +50,8 @@ def class_confusion_matrix(preds, labels, config):
 
     return class_confusion_matrix_dict
 
-def precision_recall_f1(confusion_matrix):
+
+def _precision_recall_f1(confusion_matrix):
     if (confusion_matrix['tp'] + confusion_matrix['fp']) == 0:
         precision = 0.0
     else:
@@ -61,14 +69,16 @@ def precision_recall_f1(confusion_matrix):
 
     return precision, recall, f1
 
-def print_metrics(confusion_matrix):
-    cat_accuracy = confusion_matrix['total']['correct'] / (confusion_matrix['total']['incorrect'] + confusion_matrix['total']['correct'])
+
+def _print_metrics(confusion_matrix):
+    cat_accuracy = confusion_matrix['total']['correct'] / (
+                confusion_matrix['total']['incorrect'] + confusion_matrix['total']['correct'])
     print("Categorical Accuracy: %0.4f" % (cat_accuracy,))
     values = []
     for key, value in confusion_matrix.items():
         if key == 'total':
             continue
-        precision, recall, f1 = precision_recall_f1(value)
+        precision, recall, f1 = _precision_recall_f1(value)
 
         print("Class: %s Precision: %0.4f  Recall: %0.4f  F1: %0.4f" % (key.ljust(15), precision, recall, f1))
         values.append(str(precision) + "," + str(recall) + "," + str(f1))

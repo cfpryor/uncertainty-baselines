@@ -30,6 +30,8 @@ differentiable constraints.
 
 ## Running
 
+`python3 -m scripts.run path/to/data experiment_name models.Class learning.Class inference.Class`
+
 **MultiWoZ Synthetic Gradient Decoding:**
 
-`python3 -m scripts.multiwoz_synthetic.gradient_decoding_run path/to/data`
+`python3 -m scripts.run data/multiwoz_synthetic.json multiwoz_synthetic models.multiwoz_synthetic.psl_model.PSLModelMultiWoZ learning.unconstrained_learning.UnconstrainedLearning inference.constrained_gradient_decoding.ConstrainedGradientDecoding`

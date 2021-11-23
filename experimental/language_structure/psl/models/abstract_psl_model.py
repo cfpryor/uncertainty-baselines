@@ -24,8 +24,7 @@ import tensorflow as tf
 class PSLModel(abc.ABC):
     """Abstract class for PSL constraints."""
 
-    def __init__(self, rule_weights: List[float], rule_names: List[str],
-                 **kwargs) -> None:
+    def __init__(self, rule_weights: List[float], rule_names: List[str], **kwargs) -> None:
         assert len(rule_weights) == len(
             rule_names), 'Rule weights and rule names must be the same length.'
 
@@ -35,6 +34,10 @@ class PSLModel(abc.ABC):
 
     @abc.abstractmethod
     def compute_loss(self, data: tf.Tensor, logits: tf.Tensor) -> float:
+        pass
+
+    @abc.abstractmethod
+    def compute_rules_loss(self, data: tf.Tensor, logits: tf.Tensor) -> float:
         pass
 
     @staticmethod

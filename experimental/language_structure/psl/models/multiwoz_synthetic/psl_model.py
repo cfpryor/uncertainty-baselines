@@ -609,3 +609,14 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
             total_loss += rule_weight * rule_function(**rule_kwargs)
 
         return total_loss
+
+    def compute_rules_loss(self, data: tf.Tensor, logits: tf.Tensor) -> List[float]:
+        """Calculate the loss each PSL rules separately."""
+        rules_loss = []
+        rule_kwargs = dict(logits=logits, data=data)
+
+        for rule_weight, rule_function in zip(self.rule_weights,
+                                              self.rule_functions):
+            rules_loss.append( rule_weight * rule_function(**rule_kwargs))
+
+        return rules_loss

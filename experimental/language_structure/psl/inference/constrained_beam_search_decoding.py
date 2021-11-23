@@ -21,11 +21,13 @@ File consists of:
 """
 from typing import List
 
+import math
+
 import tensorflow as tf
-from inference import abstract_inference_application
+from inference.abstract_inference_application import AbstractInferenceApplication
 
 
-class ConstrainedBeamSearchDecoding(abstract_inference_application.AbstractInferenceApplication):
+class ConstrainedBeamSearchDecoding(AbstractInferenceApplication):
     """Constrained beam search decoding."""
 
     def __init__(self, model, constraints, **kwargs) -> None:
@@ -50,5 +52,16 @@ class ConstrainedBeamSearchDecoding(abstract_inference_application.AbstractInfer
           Returns:
             Logits for a batch.
         """
-        batch_beams = None
+        logits = self.model(data, training=False)
+        batch_beams = []
+
+        for example in logits:
+            batch_beams.append([[[], 0.0]])
+            for distribution in example:
+                candidates = []
+                for index_i in range(len(batch_beams[-1])):
+                    sequence, value = batch_beams[-1][index_i]
+                    for index_j in range(len(distribution)):
+                        candidates.append([sequence + [index_j], value - math.log(distribution[index_j])])
+                batch_beams[-1] = sorted(candidates, key=lambda seq: seq[1])[:self.beams]
         return batch_beams

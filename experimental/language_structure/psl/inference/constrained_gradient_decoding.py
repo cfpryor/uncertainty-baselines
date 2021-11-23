@@ -22,10 +22,9 @@ File consists of:
 from typing import List
 
 import tensorflow as tf
-from inference import abstract_inference_application
+from inference.abstract_inference_application import AbstractInferenceApplication
 
-
-class ConstrainedGradientDecoding(abstract_inference_application.AbstractInferenceApplication):
+class ConstrainedGradientDecoding(AbstractInferenceApplication):
     """Constrained gradient decoding."""
 
     def __init__(self, model, constraints, **kwargs) -> None:

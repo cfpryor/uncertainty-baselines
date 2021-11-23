@@ -13,27 +13,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Abstract class for learning applications."""
-
-import abc
-from typing import List, Tuple
+# Lint as: python3
+"""Unconstrained inference."""
+from typing import List
 
 import tensorflow as tf
+from inference.abstract_inference_application import AbstractInferenceApplication
 
 
-class AbstractLearningApplication(abc.ABC):
-    """Abstract class for learning applications."""
+class UnconstrainedInference(AbstractInferenceApplication):
+    """Unconstrained inference."""
 
-    def __init__(self, model, constraints, epochs, **kwargs) -> None:
-        self.model = model
-        self.constraints = constraints
-        self.epochs = epochs
-        self.kwargs = kwargs
+    def __init__(self, model, constraints, **kwargs) -> None:
+        super().__init__(model, constraints, **kwargs)
 
-    @abc.abstractmethod
-    def fit(self, dataset) -> List[tf.Tensor]:
-        pass
+    def predict(self, dataset: tf.Tensor) -> List[tf.Tensor]:
+        """Unconstrained prediction."""
+        return self.model.predict(dataset)
 
-    @abc.abstractmethod
-    def batch_fit(self, data: tf.Tensor) -> tf.Tensor:
+    def batch_predict(self, data: tf.Tensor, labels: tf.Tensor) -> tf.Tensor:
+        """Unconstrained batch prediction."""
         pass

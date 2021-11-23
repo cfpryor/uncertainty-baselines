@@ -14,28 +14,36 @@
 # limitations under the License.
 
 # Lint as: python3
-"""Utilities for dialog dataset manipulation.
-
-File consists of:
-- Basic data loading and parsing
-- Adding padding to data and labels
-"""
+"""MultiWoZ Synthetic data manipulation."""
 
 import copy
-import json
-
+import numpy as np
 from typing import Dict, List, Tuple
 
-import numpy as np
-import tensorflow as tf
+import scripts.util as util
 
 Utterance = List[int]
 UserSystem = List[Utterance]
 Dialog = List[UserSystem]
 
 
+def prepare_dataset(data, config):
+    """Prepares the train and test datasets."""
+    train_ds = _prepare_dataset_helper(data['train_data'],
+                                       data['train_truth_dialog'],
+                                       data['vocab_mapping'],
+                                       True, config)
+
+    test_ds = _prepare_dataset_helper(data['test_data'],
+                                      data['test_truth_dialog'],
+                                      data['vocab_mapping'],
+                                      False, config)
+
+    return train_ds, test_ds
+
+
 def _prepare_dataset_helper(raw_data, raw_labels, vocab_mapping, training, config):
-    data = add_features(
+    data = _add_features(
         raw_data,
         vocab_mapping=vocab_mapping,
         accept_words=config['accept_words'],
@@ -58,30 +66,15 @@ def _prepare_dataset_helper(raw_data, raw_labels, vocab_mapping, training, confi
         pad_utterance_mask=config['pad_utterance_mask'],
         last_utterance_mask=config['last_utterance_mask'],
         mask_index=config['mask_index'])
-    data = pad_dialogs(data,
+    data = _pad_dialogs(data,
                        config['max_dialog_size'],
                        config['max_utterance_size'])
-    labels = one_hot_string_encoding(raw_labels,
+    labels = _one_hot_string_encoding(raw_labels,
                                      config['class_map'])
-    labels = pad_one_hot_labels(labels,
+    labels = _pad_one_hot_labels(labels,
                                 config['max_dialog_size'],
                                 config['class_map'])
-    return list_to_dataset(data[0], labels[0], training, config['batch_size'])
-
-
-def prepare_dataset(data, config):
-    """Prepares the train and test datasets."""
-    train_ds = _prepare_dataset_helper(data['train_data'],
-                                       data['train_truth_dialog'],
-                                       data['vocab_mapping'],
-                                       True, config)
-
-    test_ds = _prepare_dataset_helper(data['test_data'],
-                                      data['test_truth_dialog'],
-                                      data['vocab_mapping'],
-                                      False, config)
-
-    return train_ds, test_ds
+    return util.list_to_dataset(data[0], labels[0], training, config['batch_size'])
 
 
 def _annotate_if_contains_words(utterance: List[int], key_words: List[str],
@@ -114,7 +107,7 @@ def _annotate_if_contains_words(utterance: List[int], key_words: List[str],
     return utterance
 
 
-def add_features(dialogs: List[Dialog], vocab_mapping: Dict[str, int],
+def _add_features(dialogs: List[Dialog], vocab_mapping: Dict[str, int],
                  accept_words: List[str], cancel_words: List[str],
                  end_words: List[str], greet_words: List[str],
                  info_question_words: List[str], insist_words: List[str],
@@ -235,7 +228,7 @@ def add_features(dialogs: List[Dialog], vocab_mapping: Dict[str, int],
     return dialogs_copy
 
 
-def pad_utterance(utterance: Utterance,
+def _pad_utterance(utterance: Utterance,
                   max_utterance_size: int) -> Tuple[Utterance, List[int]]:
     """Pads utterance up to the max utterance size."""
     utt = utterance + [0] * (max_utterance_size - len(utterance))
@@ -243,7 +236,7 @@ def pad_utterance(utterance: Utterance,
     return utt, mask
 
 
-def pad_dialog(
+def _pad_dialog(
         dialog: Dialog, max_dialog_size: int, max_utterance_size: int
 ) -> Tuple[List[List[int]], List[List[int]], List[List[int]], List[List[int]]]:
     """Pads utterances in a dialog up to max dialog sizes."""
@@ -251,34 +244,34 @@ def pad_dialog(
     dialog_usr_input, dialog_usr_mask, dialog_sys_input, dialog_sys_mask = [], [], [], []
 
     for turn in dialog:
-        pad_utt, mask = pad_utterance(turn[0], max_utterance_size)
+        pad_utt, mask = _pad_utterance(turn[0], max_utterance_size)
         dialog_usr_input.append(pad_utt)
         dialog_usr_mask.append(mask)
 
-        pad_utt, mask = pad_utterance(turn[1], max_utterance_size)
+        pad_utt, mask = _pad_utterance(turn[1], max_utterance_size)
         dialog_sys_input.append(pad_utt)
         dialog_sys_mask.append(mask)
 
     for _ in range(max_dialog_size - len(dialog)):
-        pad_utt, mask = pad_utterance([], max_utterance_size)
+        pad_utt, mask = _pad_utterance([], max_utterance_size)
         dialog_usr_input.append(pad_utt)
         dialog_usr_mask.append(mask)
 
-        pad_utt, mask = pad_utterance([], max_utterance_size)
+        pad_utt, mask = _pad_utterance([], max_utterance_size)
         dialog_sys_input.append(pad_utt)
         dialog_sys_mask.append(mask)
 
     return dialog_usr_input, dialog_usr_mask, dialog_sys_input, dialog_sys_mask
 
 
-def pad_dialogs(
+def _pad_dialogs(
         dialogs: List[Dialog], max_dialog_size: int, max_utterance_size: int
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Pads all dialogs and utterances."""
     usr_input_sent, usr_input_mask, sys_input_sent, sys_input_mask = [], [], [], []
 
     for dialog in dialogs:
-        usr_input, usr_mask, sys_input, sys_mask = pad_dialog(
+        usr_input, usr_mask, sys_input, sys_mask = _pad_dialog(
             dialog, max_dialog_size, max_utterance_size)
 
         usr_input_sent.append(usr_input)
@@ -290,7 +283,7 @@ def pad_dialogs(
         sys_input_sent), np.array(sys_input_mask),
 
 
-def one_hot_string_encoding(labels: List[List[str]],
+def _one_hot_string_encoding(labels: List[List[str]],
                             mapping: Dict[str, int]) -> List[List[List[int]]]:
     """Converts string labels into one hot encodings."""
     one_hot_labels = []
@@ -304,7 +297,7 @@ def one_hot_string_encoding(labels: List[List[str]],
     return one_hot_labels
 
 
-def pad_one_hot_labels(
+def _pad_one_hot_labels(
         labels: List[List[List[int]]], max_dialog_size: int,
         mapping: Dict[str, int]) -> Tuple[List[List[List[int]]], List[List[int]]]:
     """Pads one hot encoded lables."""
@@ -319,18 +312,3 @@ def pad_one_hot_labels(
             pad_labels[-1].append([0] * len(mapping))
 
     return pad_labels, pad_mask
-
-
-def list_to_dataset(data: List[Dialog], labels: List[List[List[int]]],
-                    shuffle: bool, batch_size: int) -> tf.data.Dataset:
-    """Converts list into tensorflow dataset."""
-    ds = tf.data.Dataset.from_tensor_slices((data, labels))
-    if shuffle:
-        ds = ds.shuffle(buffer_size=len(data))
-    ds = ds.batch(batch_size)
-    return ds
-
-
-def load_json(path: str):
-    with tf.io.gfile.GFile(path, 'r') as json_file:
-        return json.load(json_file)

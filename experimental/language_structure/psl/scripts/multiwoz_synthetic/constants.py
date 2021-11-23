@@ -15,24 +15,12 @@
 
 # Lint as: python3
 
-"""Util for the MultiWoZ Synthetic gradient decoding."""
+"""MultiWoZ Synthetic constants."""
 
-import tensorflow as tf
-
-# Constraint Constants
 RULE_WEIGHTS = [1.0, 20.0, 5.0, 5.0, 5.0, 10.0, 5.0, 20.0, 5.0, 5.0, 5.0, 10.0]
 RULE_NAMES = ('rule_1', 'rule_2', 'rule_3', 'rule_4', 'rule_5', 'rule_6',
               'rule_7', 'rule_8', 'rule_9', 'rule_10', 'rule_11', 'rule_12')
 
-# Inference Constants
-ALPHA = 0.1
-GRAD_STEPS = 25
-
-# Learning Constants
-TRAINING_EPOCHS = 1
-LEARNING_RATE = 0.0001
-
-# Data Constants
 DATA_CONFIG = {
     'batch_size': 128,
     'max_dialog_size': 10,
@@ -70,23 +58,19 @@ DATA_CONFIG = {
     'pad_utterance_mask': -3,
 }
 
-def build_model(input_size, learning_rate=LEARNING_RATE):
-    """Build simple neural model for class prediction."""
-    input_layer = tf.keras.layers.Input(input_size)
-    hidden_layer_1 = tf.keras.layers.Dense(1024)(input_layer)
-    hidden_layer_2 = tf.keras.layers.Dense(
-        512, activation='sigmoid')(
-        hidden_layer_1)
-    output = tf.keras.layers.Dense(
-        9, activation='softmax',
-        kernel_regularizer=tf.keras.regularizers.l2(1.0))(
-        hidden_layer_2)
-
-    model = tf.keras.Model(input_layer, output)
-
-    model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
-        loss='categorical_crossentropy',
-        metrics=['accuracy'])
-
-    return model
+KWARGS_DICT = {
+    'inference.constrained_beam_search_decoding.ConstrainedBeamSearchDecoding':
+        {'beams': 3},
+    'inference.constrained_gradient_decoding.ConstrainedGradientDecoding':
+        {'alpha': 0.1, 'grad_steps': 25},
+    'inference.unconstrained_inference.UnconstrainedInference':
+        {},
+    'learning.constrained_regularized_learning.ConstrainedRegularizedLearning':
+        {'epochs': 1},
+    'learning.unconstrained_learning.UnconstrainedLearning':
+        {'epochs': 5},
+    'models.multiwoz_synthetic.psl_model.PSLModelMultiWoZ':
+        {'rule_weights': RULE_WEIGHTS, 'rule_names': RULE_NAMES, 'config': DATA_CONFIG},
+    'scripts.multiwoz_synthetic.model_util':
+        {'input_size': [DATA_CONFIG['max_dialog_size'], DATA_CONFIG['max_utterance_size']]},
+}
