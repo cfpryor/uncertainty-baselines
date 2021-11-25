@@ -31,25 +31,27 @@ class PSLModel(abc.ABC):
         self.rule_functions = [getattr(self, rule_name) for rule_name in rule_names]
         self.rule_weights = rule_weights
         self.kwargs = kwargs
+        self.mask = None
 
     @abc.abstractmethod
-    def compute_loss(self, data: tf.Tensor, logits: tf.Tensor) -> float:
+    def compute_total_loss(self, data: tf.Tensor, logits: tf.Tensor) -> float:
         pass
 
     @abc.abstractmethod
-    def compute_rules_loss(self, data: tf.Tensor, logits: tf.Tensor) -> float:
+    def compute_all_potential_losses(self, data: tf.Tensor, logits: tf.Tensor) -> float:
         pass
 
     @staticmethod
-    def compute_rule_loss(body: List[tf.Tensor],
-                          head: tf.Tensor,
-                          logic: str = 'lukasiewicz') -> float:
+    def compute_potential_losses(body: List[tf.Tensor],
+                                 head: tf.Tensor,
+                                 logic: str = 'lukasiewicz',
+                                 mask = None) -> float:
         """Calculates loss for a soft rule."""
         body, head = PSLModel.soft_imply(body, head, logic=logic)
 
         if logic == 'lukasiewicz':
             # body -> head = max(1 - SUM(1 - body_i) - head, 0)
-            return tf.reduce_sum(tf.nn.relu(1. - tf.add_n(body) - head))
+            return tf.nn.relu(1. - tf.add_n(body) - head)
         else:
             raise ValueError('Unsuported logic: %s' % (logic,))
 
@@ -91,7 +93,7 @@ class PSLModel(abc.ABC):
         body = [r_x]
         head = s_x
 
-        return PSLModel.compute_rule_loss(body, head, logic=logic)
+        return PSLModel.compute_potential_losses(body, head, logic=logic)
 
     @staticmethod
     def template_rx_and_sx_implies_tx(r_x: tf.Tensor,
@@ -112,7 +114,7 @@ class PSLModel(abc.ABC):
         body = [r_x, s_x]
         head = t_x
 
-        return PSLModel.compute_rule_loss(body, head, logic=logic)
+        return PSLModel.compute_potential_losses(body, head, logic=logic)
 
     @staticmethod
     def template_rxy_and_sy_implies_tx(r_xy: tf.Tensor,
@@ -139,7 +141,7 @@ class PSLModel(abc.ABC):
         body = [r_xy, s_y_matrix]
         head = t_x_matrix
 
-        return PSLModel.compute_rule_loss(body, head, logic=logic)
+        return PSLModel.compute_potential_losses(body, head, logic=logic)
 
     @staticmethod
     def template_rxy_and_sy_and_tx_implies_ux(
@@ -170,7 +172,7 @@ class PSLModel(abc.ABC):
         body = [r_xy, s_y_matrix, t_x_matrix]
         head = u_x_matrix
 
-        return PSLModel.compute_rule_loss(body, head, logic=logic)
+        return PSLModel.compute_potential_losses(body, head, logic=logic)
 
     @staticmethod
     def template_rxy_and_sy_and_tx_and_ux_implies_vx(
@@ -205,7 +207,7 @@ class PSLModel(abc.ABC):
         body = [r_xy, s_y_matrix, t_x_matrix, u_x_matrix]
         head = v_x_matrix
 
-        return PSLModel.compute_rule_loss(body, head, logic=logic)
+        return PSLModel.compute_potential_losses(body, head, logic=logic)
 
     @staticmethod
     def _unary_to_binary(predicate: tf.Tensor, transpose: bool) -> tf.Tensor:

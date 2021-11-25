@@ -34,8 +34,11 @@ class ConstrainedBeamSearchDecoding(AbstractInferenceApplication):
         super().__init__(model, constraints, **kwargs)
 
         if 'num_beams' not in kwargs:
-            raise KeyError('Missing argument: alpha')
+            raise KeyError('Missing argument: num_beams')
+        if 'class_rules_mapping' not in kwargs:
+            raise KeyError('Missing argument: class_rules_mapping')
         self.num_beams = kwargs['num_beams']
+        self.class_rules_mapping = kwargs['class_rules_mapping']
 
         self.beams = []
 
@@ -58,16 +61,47 @@ class ConstrainedBeamSearchDecoding(AbstractInferenceApplication):
             Logits for a batch.
         """
         logits = self.model(data, training=False)
+        return self._beam_search(data, logits)
+
+    def _beam_search(self, data: tf.Tensor, logits: tf.Tensor) -> tf.Tensor:
         batch_beams = []
 
-        for example in logits:
+        for index_i in range(len(logits)):
             batch_beams.append([[[], 0.0]])
-            for distribution in example:
+            for distribution in logits[index_i]:
                 candidates = []
-                for index_i in range(len(batch_beams[-1])):
-                    sequence, value = batch_beams[-1][index_i]
-                    for index_j in range(len(distribution)):
-                        candidates.append([sequence + [index_j], value - math.log(distribution[index_j])])
+                constrained_distribution = self._update_distribution(index_i, distribution, data, logits, len(logits[index_i]))
+                for index_j in range(len(batch_beams[-1])):
+                    sequence, value = batch_beams[-1][index_j]
+                    for index_k in range(len(constrained_distribution)):
+                        candidates.append([sequence + [index_k], value - math.log(constrained_distribution[index_k])])
                 ordered_candidates = sorted(candidates, key=lambda seq: seq[1])
                 batch_beams[-1] = ordered_candidates[:self.num_beams]
         return batch_beams
+
+    def _update_distribution(self, index, distribution, data, logits, size):
+        return distribution
+        constraint_losses = self.constraints.compute_all_potential_losses(data, logits)
+        masked_constraint_losses = []
+        base_loss = 0.0
+
+        for constraint_index in range(len(constraint_losses)):
+            previous_mask = self._create_mask(index, size, len(constraint_losses[constraint_index].shape) - 1)
+            current_mask = self._create_mask(index + 1, size, len(constraint_losses[constraint_index].shape) - 1) - previous_mask
+
+            masked_constraint_losses.append(constraint_losses[constraint_index] * current_mask)
+            rule_index, parity = self.class_rules_mapping[constraint_index]
+            base_loss += parity * tf.reduce_sum(constraint_losses[constraint_index] * previous_mask)
+
+        for class_index in self.class_rules_mapping:
+            for rule_index, parity in self.class_rules_mapping[class_index]:
+                distribution[class_index] += parity * masked_constraint_losses[rule_index]
+
+        return distribution + base_loss
+
+    def _create_mask(self, index, size, dimension):
+        mask = tf.constant(([1.0] * index + [0.0] * (size - index)), dtype=tf.float32)
+        if dimension == 2:
+            mask = tf.cast(tf.sequence_mask(mask, size), tf.float32)
+        return mask
+

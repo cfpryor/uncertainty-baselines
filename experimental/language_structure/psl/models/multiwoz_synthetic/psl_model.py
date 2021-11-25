@@ -599,24 +599,22 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
             previous_statement, state_second_request, has_slot_question_word,
             self.soft_not(has_info_question_word), state_slot_question)
 
-    def compute_loss(self, data: tf.Tensor, logits: tf.Tensor) -> float:
+    def compute_total_loss(self, data: tf.Tensor, logits: tf.Tensor) -> float:
         """Calculate the loss for all PSL rules."""
         total_loss = 0.0
         rule_kwargs = dict(logits=logits, data=data)
 
-        for rule_weight, rule_function in zip(self.rule_weights,
-                                              self.rule_functions):
-            total_loss += rule_weight * rule_function(**rule_kwargs)
+        for rule_weight, rule_function in zip(self.rule_weights, self.rule_functions):
+            total_loss += rule_weight * tf.reduce_sum(rule_function(**rule_kwargs))
 
         return total_loss
 
-    def compute_rules_loss(self, data: tf.Tensor, logits: tf.Tensor) -> List[float]:
-        """Calculate the loss each PSL rules separately."""
+    def compute_all_potential_losses(self, data: tf.Tensor, logits: tf.Tensor) -> List[float]:
+        """Calculate the loss for each PSL rule."""
         rules_loss = []
         rule_kwargs = dict(logits=logits, data=data)
 
-        for rule_weight, rule_function in zip(self.rule_weights,
-                                              self.rule_functions):
-            rules_loss.append( rule_weight * rule_function(**rule_kwargs))
+        for rule_weight, rule_function in zip(self.rule_weights, self.rule_functions):
+            rules_loss.append(rule_weight * rule_function(**rule_kwargs))
 
         return rules_loss

@@ -61,7 +61,7 @@ class ConstrainedGradientDecoding(AbstractInferenceApplication):
           Returns:
             Logits for a batch.
         """
-        self.satisfy_constraints(data, labels)
+        self._satisfy_constraints(data, labels)
 
         batch_logits = self.model(data, training=False)
         self.model.compiled_loss(labels, batch_logits)
@@ -71,12 +71,12 @@ class ConstrainedGradientDecoding(AbstractInferenceApplication):
 
         return batch_logits
 
-    def satisfy_constraints(self, data: tf.Tensor, labels: tf.Tensor,):
+    def _satisfy_constraints(self, data: tf.Tensor, labels: tf.Tensor,):
         """Update weights to satisfy constraints while staying close to original weights."""
         for _ in range(self.grad_steps):
             with tf.GradientTape() as tape:
                 logits = self.model(data, training=False)
-                constraint_loss = self.constraints.compute_loss(data, logits)
+                constraint_loss = self.constraints.compute_total_loss(data, logits)
                 weight_loss = tf.reduce_sum([
                     tf.reduce_mean(tf.math.squared_difference(w, w_h))
                     for w, w_h in zip(self.weights_copy, self.model.weights)
