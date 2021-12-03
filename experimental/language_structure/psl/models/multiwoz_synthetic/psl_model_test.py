@@ -51,6 +51,9 @@ class PslRulesTest(tf.test.TestCase):
 
     def _run_model(self, rule_names, weights):
         # Set rule functions and rule weights
+        self.constraints.set_batch_size(4)
+        for test_features, _ in self.test_ds:
+            self.constraints.generate_predicates(test_features)
         self.constraints.set_rule_functions(self.constraints, rule_names)
         self.constraints.set_rule_weights(self.constraints, weights)
 
@@ -73,7 +76,9 @@ class PslRulesTest(tf.test.TestCase):
         self.assertNotEqual(predictions[2][3], self.config['class_map']['greet'])
 
     def test_psl_rule_1(self):
-        loss = self.constraints.rule_1(logits=self.logits)
+        self.constraints.set_batch_size(2)
+        self.constraints.generate_predicates(self.features)
+        loss = tf.reduce_sum(self.constraints.rule_1(logits=self.logits))
         self.assertNear(loss, 1.4, err=1e-6)
 
     def test_psl_rule_2_run_model(self):
@@ -82,7 +87,9 @@ class PslRulesTest(tf.test.TestCase):
         self.assertEqual(predictions[3][0], self.config['class_map']['greet'])
 
     def test_psl_rule_2(self):
-        loss = self.constraints.rule_2(logits=self.logits, data=self.features)
+        self.constraints.set_batch_size(2)
+        self.constraints.generate_predicates(self.features)
+        loss = tf.reduce_sum(self.constraints.rule_2(logits=self.logits))
         self.assertNear(loss, 0.6, err=1e-6)
 
     def test_psl_rule_3_run_model(self):
@@ -91,7 +98,9 @@ class PslRulesTest(tf.test.TestCase):
         self.assertEqual(predictions[1][0], self.config['class_map']['init_request'])
 
     def test_psl_rule_3(self):
-        loss = self.constraints.rule_3(logits=self.logits, data=self.features)
+        self.constraints.set_batch_size(2)
+        self.constraints.generate_predicates(self.features)
+        loss = tf.reduce_sum(self.constraints.rule_3(logits=self.logits))
         self.assertNear(loss, 0.8, err=1e-6)
 
     def test_psl_rule_4_run_model(self):
@@ -100,7 +109,9 @@ class PslRulesTest(tf.test.TestCase):
         self.assertEqual(predictions[2][1], self.config['class_map']['second_request'])
 
     def test_psl_rule_4(self):
-        loss = self.constraints.rule_4(logits=self.logits, data=self.features)
+        self.constraints.set_batch_size(2)
+        self.constraints.generate_predicates(self.features)
+        loss = tf.reduce_sum(self.constraints.rule_4(logits=self.logits))
         self.assertNear(loss, 1.8, err=1e-6)
 
     def test_psl_rule_5_run_model(self):
@@ -109,7 +120,9 @@ class PslRulesTest(tf.test.TestCase):
         self.assertNotEqual(predictions[2][1], self.config['class_map']['init_request'])
 
     def test_psl_rule_5(self):
-        loss = self.constraints.rule_5(logits=self.logits, data=self.features)
+        self.constraints.set_batch_size(2)
+        self.constraints.generate_predicates(self.features)
+        loss = tf.reduce_sum(self.constraints.rule_5(logits=self.logits))
         self.assertNear(loss, 1.4, err=1e-6)
 
     def test_psl_rule_6_run_model(self):
@@ -118,7 +131,9 @@ class PslRulesTest(tf.test.TestCase):
         self.assertNotEqual(predictions[2][0], self.config['class_map']['greet'])
 
     def test_psl_rule_6(self):
-        loss = self.constraints.rule_6(logits=self.logits, data=self.features)
+        self.constraints.set_batch_size(2)
+        self.constraints.generate_predicates(self.features)
+        loss = tf.reduce_sum(self.constraints.rule_6(logits=self.logits))
         self.assertNear(loss, 1.4, err=1e-6)
 
     def test_psl_rule_7_run_model(self):
@@ -127,27 +142,39 @@ class PslRulesTest(tf.test.TestCase):
         self.assertEqual(predictions[2][3], self.config['class_map']['end'])
 
     def test_psl_rule_7(self):
-        loss = self.constraints.rule_7(logits=self.logits, data=self.features)
+        self.constraints.set_batch_size(2)
+        self.constraints.generate_predicates(self.features)
+        loss = tf.reduce_sum(self.constraints.rule_7(logits=self.logits))
         self.assertNear(loss, 1.1, err=1e-6)
 
     def test_psl_rule_8(self):
-        loss = self.constraints.rule_8(logits=self.logits, data=self.features)
+        self.constraints.set_batch_size(2)
+        self.constraints.generate_predicates(self.features)
+        loss = tf.reduce_sum(self.constraints.rule_8(logits=self.logits))
         self.assertNear(loss, 0.9, err=1e-6)
 
     def test_psl_rule_9(self):
-        loss = self.constraints.rule_9(logits=self.logits, data=self.features)
+        self.constraints.set_batch_size(2)
+        self.constraints.generate_predicates(self.features)
+        loss = tf.reduce_sum(self.constraints.rule_9(logits=self.logits))
         self.assertNear(loss, 0.8, err=1e-6)
 
     def test_psl_rule_10(self):
-        loss = self.constraints.rule_10(logits=self.logits, data=self.features)
+        self.constraints.set_batch_size(2)
+        self.constraints.generate_predicates(self.features)
+        loss = tf.reduce_sum(self.constraints.rule_10(logits=self.logits))
         self.assertNear(loss, 0.3, err=1e-6)
 
     def test_psl_rule_11(self):
-        loss = self.constraints.rule_11(logits=self.logits, data=self.features)
+        self.constraints.set_batch_size(2)
+        self.constraints.generate_predicates(self.features)
+        loss = tf.reduce_sum(self.constraints.rule_11(logits=self.logits))
         self.assertNear(loss, 0.7, err=1e-6)
 
     def test_psl_rule_12(self):
-        loss = self.constraints.rule_12(logits=self.logits, data=self.features)
+        self.constraints.set_batch_size(2)
+        self.constraints.generate_predicates(self.features)
+        loss = tf.reduce_sum(self.constraints.rule_12(logits=self.logits))
         self.assertNear(loss, 0.1, err=1e-6)
 
 

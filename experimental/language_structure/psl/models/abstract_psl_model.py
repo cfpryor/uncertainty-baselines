@@ -32,6 +32,11 @@ class PSLModel(abc.ABC):
         self.rule_weights = rule_weights
         self.kwargs = kwargs
         self.mask = None
+        self.predicates = {}
+
+    @abc.abstractmethod
+    def generate_predicates(self, data: tf.Tensor) -> float:
+        pass
 
     @abc.abstractmethod
     def compute_total_loss(self, data: tf.Tensor, logits: tf.Tensor) -> float:

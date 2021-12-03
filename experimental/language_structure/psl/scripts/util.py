@@ -36,7 +36,7 @@ def list_to_dataset(data, labels, shuffle: bool, batch_size: int) -> tf.data.Dat
     ds = tf.data.Dataset.from_tensor_slices((data, labels))
     if shuffle:
         ds = ds.shuffle(buffer_size=len(data))
-    ds = ds.batch(batch_size)
+    ds = ds.batch(batch_size, drop_remainder=True)
     return ds
 
 

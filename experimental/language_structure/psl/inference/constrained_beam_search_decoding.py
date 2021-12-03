@@ -104,4 +104,3 @@ class ConstrainedBeamSearchDecoding(AbstractInferenceApplication):
         if dimension == 2:
             mask = tf.cast(tf.sequence_mask(mask, size), tf.float32)
         return mask
-

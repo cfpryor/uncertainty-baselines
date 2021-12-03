@@ -37,27 +37,29 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
             raise KeyError('Missing argument: config')
         self.config = kwargs['config']
         self.class_map = self.config['class_map']
+        self.batch_size = self.config['batch_size']
+        self.dialog_size = self.config['max_dialog_size']
 
-    def _first_statement(self, batch_size, dialog_size):
+    def _first_statement(self):
         """Creates a (batch_size, dialog_size) first statement mask."""
-        return tf.constant([[1.0] + [0.0] * (dialog_size - 1)] * batch_size)
+        return tf.constant([[1.0] + [0.0] * (self.dialog_size - 1)] * self.batch_size)
 
-    def _end_statement(self, data, batch_size):
+    def _end_statement(self, data):
         """Creates a (batch_size, dialog_size) end statement mask."""
-        end = self._get_tensor_column(data, self.config['mask_index'], batch_size)
+        end = self._get_tensor_column(data, self.config['mask_index'])
         end_mask = tf.equal(end, self.config['last_utterance_mask'])
         return tf.cast(end_mask, tf.float32)
 
-    def _get_tensor_column(self, data, index, batch_size):
+    def _get_tensor_column(self, data, index):
         """Gathers a column in a tensor and reshapes."""
-        return tf.reshape(tf.gather(data, index, axis=-1), [batch_size, -1])
+        return tf.reshape(tf.gather(data, index, axis=-1), [self.batch_size, -1])
 
-    def _has_word(self, data, batch_size, index):
-        word = self._get_tensor_column(data, self.config[index], batch_size)
+    def _has_word(self, data, index):
+        word = self._get_tensor_column(data, self.config[index])
         word_mapping = tf.equal(word, self.config['includes_word'])
         return tf.cast(word_mapping, tf.float32)
 
-    def _previous_statement(self, data, batch_size, dialog_size):
+    def _previous_statement(self, data):
         """Creates a cross product matrix mask representing the previous statements.
 
         Creates a cross product matrix masked to contain only the previous statement
@@ -99,22 +101,21 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
         Returns:
           A cross product matrix mask containing the previous statements.
         """
-        off_diagonal_matrix = tf.linalg.diag([1.0] * (dialog_size - 1), k=1)
+        off_diagonal_matrix = tf.linalg.diag([1.0] * (self.dialog_size - 1), k=1)
 
         # Creates a (batch_size, dialog_size, dialog_size) tensor indicating which
         # utterances have padding (see docstirng for details).
-        padding = self._get_tensor_column(data, self.config['mask_index'],
-                                          batch_size)
+        padding = self._get_tensor_column(data, self.config['mask_index'])
         padding_mask = tf.equal(padding, self.config['utterance_mask'])
         padding_mask = tf.cast(padding_mask, tf.float32)
-        padding_mask = tf.repeat(padding_mask, dialog_size, axis=-1)
-        padding_mask = tf.reshape(padding_mask, [-1, dialog_size, dialog_size])
+        padding_mask = tf.repeat(padding_mask, self.dialog_size, axis=-1)
+        padding_mask = tf.reshape(padding_mask, [-1, self.dialog_size, self.dialog_size])
 
         # Creates a (batch_size, dialog_size, dialog_size) tensor indicating what
         # the previous statements are in a dialog.
         return off_diagonal_matrix * padding_mask
 
-    def _next_statement(self, data, batch_size, dialog_size):
+    def _next_statement(self, data):
         """Creates a cross product matrix mask representing the next statements.
 
         Creates a cross product matrix masked to contain only the next statement
@@ -156,18 +157,17 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
         Returns:
           A cross product matrix mask containing the next statements.
         """
-        off_diagonal_matrix = tf.linalg.diag([1.0] * (dialog_size - 1), k=-1)
+        off_diagonal_matrix = tf.linalg.diag([1.0] * (self.dialog_size - 1), k=-1)
 
         # Creates a (batch_size, dialog_size, dialog_size) tensor indicating which
         # utterances have padding (see docstirng for details).
-        padding = self._get_tensor_column(data, self.config['mask_index'],
-                                          batch_size)
+        padding = self._get_tensor_column(data, self.config['mask_index'])
         padding_mask = tf.math.logical_or(
             tf.equal(padding, self.config['utterance_mask']),
             tf.equal(padding, self.config['last_utterance_mask']))
         padding_mask = tf.cast(padding_mask, tf.float32)
-        padding_mask = tf.repeat(padding_mask, dialog_size, axis=-1)
-        padding_mask = tf.reshape(padding_mask, [-1, dialog_size, dialog_size])
+        padding_mask = tf.repeat(padding_mask, self.dialog_size, axis=-1)
+        padding_mask = tf.reshape(padding_mask, [-1, self.dialog_size, self.dialog_size])
 
         # Creates a (batch_size, dialog_size, dialog_size) tensor indicating what
         # the previous statements are in a dialog.
@@ -189,18 +189,13 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
         Returns:
           A loss incurred by this dialog structure rule.
         """
+        first_statement = self.predicates['first_statement']
+        state_greet = self._get_tensor_column(logits, self.class_map['greet'])
 
-        batch_size, dialog_size, _ = logits.shape
+        return self.template_rx_implies_sx(self.soft_not(first_statement),
+                                           self.soft_not(state_greet))
 
-        # Creates predicates for differentiable potentials.
-        first_statement = self._first_statement(batch_size, dialog_size)
-        state_greet = self._get_tensor_column(logits, self.class_map['greet'],
-                                              batch_size)
-
-        return self.template_rx_implies_sx(
-            self.soft_not(first_statement), self.soft_not(state_greet))
-
-    def rule_2(self, logits, data, **unused_kwargs) -> float:
+    def rule_2(self, logits, **unused_kwargs) -> float:
         """Dialog structure rule.
 
         Rule:
@@ -212,23 +207,19 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
 
         Args:
           logits: logits outputted by a neural model.
-          data: input features used to produce the logits.
 
         Returns:
           A loss incurred by this dialog structure rule.
         """
-        batch_size, dialog_size, _ = logits.shape
+        first_statement = self.predicates['first_statement']
+        has_greet_word = self.predicates['greet']
+        state_greet = self._get_tensor_column(logits, self.class_map['greet'])
 
-        # Creates predicates for differentiable potentials.
-        first_statement = self._first_statement(batch_size, dialog_size)
-        has_greet_word = self._has_word(data, batch_size, 'greet_index')
-        state_greet = self._get_tensor_column(logits, self.class_map['greet'],
-                                              batch_size)
-
-        return self.template_rx_and_sx_implies_tx(first_statement, has_greet_word,
+        return self.template_rx_and_sx_implies_tx(first_statement,
+                                                  has_greet_word,
                                                   state_greet)
 
-    def rule_3(self, logits, data, **unused_kwargs):
+    def rule_3(self, logits, **unused_kwargs):
         """Dialog structure rule.
 
         Rule:
@@ -240,25 +231,19 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
 
         Args:
           logits: logits outputted by a neural model.
-          data: input features used to produce the logits.
 
         Returns:
           A loss incurred by this dialog structure rule.
         """
-        batch_size, dialog_size, _ = logits.shape
-
-        # Creates predicates for differentiable potentials.
-        first_statement = self._first_statement(batch_size, dialog_size)
-        has_greet_word = self._has_word(data, batch_size, 'greet_index')
-        state_init_request = self._get_tensor_column(logits,
-                                                     self.class_map['init_request'],
-                                                     batch_size)
+        first_statement = self.predicates['first_statement']
+        has_greet_word = self.predicates['greet']
+        state_init_request = self._get_tensor_column(logits, self.class_map['init_request'])
 
         return self.template_rx_and_sx_implies_tx(first_statement,
                                                   self.soft_not(has_greet_word),
                                                   state_init_request)
 
-    def rule_4(self, logits, data, **unused_kwargs):
+    def rule_4(self, logits, **unused_kwargs):
         """Dialog structure rule.
 
         Rule:
@@ -276,31 +261,20 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
 
         Args:
           logits: logits outputted by a neural model.
-          data: input features used to produce the logits.
 
         Returns:
           A loss incurred by this dialog structure rule.
         """
-        batch_size, dialog_size, _ = logits.shape
+        previous_statement = self.predicates['previous_statement']
 
-        # Creates predicates for differentiable potentials.
-
-        # Creates a (batch_size, dialog_size, dialog_size) cross product matrix
-        # representing the previous statements. See docstring of _previous_statement
-        # for details.
-        previous_statement = self._previous_statement(data, batch_size, dialog_size)
-
-        state_init_request = self._get_tensor_column(logits,
-                                                     self.class_map['init_request'],
-                                                     batch_size)
-        state_second_request = self._get_tensor_column(
-            logits, self.class_map['second_request'], batch_size)
+        state_init_request = self._get_tensor_column(logits, self.class_map['init_request'])
+        state_second_request = self._get_tensor_column(logits, self.class_map['second_request'])
 
         return self.template_rxy_and_sy_implies_tx(previous_statement,
                                                    state_init_request,
                                                    state_second_request)
 
-    def rule_5(self, logits, data, **unused_kwargs):
+    def rule_5(self, logits, **unused_kwargs):
         """Dialog structure rule.
 
         Rule:
@@ -318,30 +292,19 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
 
         Args:
           logits: logits outputted by a neural model.
-          data: input features used to produce the logits.
 
         Returns:
           A loss incurred by this dialog structure rule.
         """
-        batch_size, dialog_size, _ = logits.shape
+        previous_statement = self.predicates['previous_statement']
+        state_greet = self._get_tensor_column(logits, self.class_map['greet'])
+        state_init_request = self._get_tensor_column(logits, self.class_map['init_request'])
 
-        # Creates predicates for differentiable potentials.
+        return self.template_rxy_and_sy_implies_tx(previous_statement,
+                                                   self.soft_not(state_greet),
+                                                   self.soft_not(state_init_request))
 
-        # Creates a (batch_size, dialog_size, dialog_size) cross product matrix
-        # representing the previous statements. See docstring of _previous_statement
-        # for details.
-        previous_statement = self._previous_statement(data, batch_size, dialog_size)
-        state_greet = self._get_tensor_column(logits, self.class_map['greet'],
-                                              batch_size)
-        state_init_request = self._get_tensor_column(logits,
-                                                     self.class_map['init_request'],
-                                                     batch_size)
-
-        return self.template_rxy_and_sy_implies_tx(
-            previous_statement, self.soft_not(state_greet),
-            self.soft_not(state_init_request))
-
-    def rule_6(self, logits, data, **unused_kwargs):
+    def rule_6(self, logits, **unused_kwargs):
         """Dialog structure rule.
 
         Rule:
@@ -359,29 +322,19 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
 
         Args:
           logits: logits outputted by a neural model.
-          data: input features used to produce the logits.
 
         Returns:
           A loss incurred by this dialog structure rule.
         """
-        batch_size, dialog_size, _ = logits.shape
+        previous_statement = self.predicates['previous_statement']
+        state_greet = self._get_tensor_column(logits, self.class_map['greet'])
+        state_init_request = self._get_tensor_column(logits, self.class_map['init_request'])
 
-        # Creates predicates for differentiable potentials.
-
-        # Creates a (batch_size, dialog_size, dialog_size) cross product matrix
-        # representing the previous statements. See docstring of _previous_statement
-        # for details.
-        previous_statement = self._previous_statement(data, batch_size, dialog_size)
-        state_greet = self._get_tensor_column(logits, self.class_map['greet'],
-                                              batch_size)
-        state_init_request = self._get_tensor_column(logits,
-                                                     self.class_map['init_request'],
-                                                     batch_size)
-
-        return self.template_rxy_and_sy_implies_tx(previous_statement, state_greet,
+        return self.template_rxy_and_sy_implies_tx(previous_statement,
+                                                   state_greet,
                                                    state_init_request)
 
-    def rule_7(self, logits, data, **unused_kwargs) -> float:
+    def rule_7(self, logits, **unused_kwargs) -> float:
         """Dialog structure rule.
 
         Rule:
@@ -393,23 +346,19 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
 
         Args:
           logits: logits outputted by a neural model.
-          data: input features used to produce the logits.
 
         Returns:
           A loss incurred by this dialog structure rule.
         """
-        batch_size, _, _ = logits.shape
+        last_statement = self.predicates['last_statement']
+        has_end_word = self.predicates['end']
+        state_end = self._get_tensor_column(logits, self.class_map['end'])
 
-        # Creates predicates for differentiable potentials.
-        last_statement = self._end_statement(data, batch_size)
-        has_end_word = self._has_word(data, batch_size, 'end_index')
-        state_end = self._get_tensor_column(logits, self.class_map['end'],
-                                            batch_size)
-
-        return self.template_rx_and_sx_implies_tx(last_statement, has_end_word,
+        return self.template_rx_and_sx_implies_tx(last_statement,
+                                                  has_end_word,
                                                   state_end)
 
-    def rule_8(self, logits, data, **unused_kwargs) -> float:
+    def rule_8(self, logits, **unused_kwargs) -> float:
         """Dialog structure rule.
 
         Rule:
@@ -421,23 +370,19 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
 
         Args:
           logits: logits outputted by a neural model.
-          data: input features used to produce the logits.
 
         Returns:
           A loss incurred by this dialog structure rule.
         """
-        batch_size, _, _ = logits.shape
+        last_statement = self.predicates['last_statement']
+        has_accept_word = self.predicates['accept']
+        state_accept = self._get_tensor_column(logits, self.class_map['accept'])
 
-        # Creates predicates for differentiable potentials.
-        last_statement = self._end_statement(data, batch_size)
-        has_accept_word = self._has_word(data, batch_size, 'accept_index')
-        state_accept = self._get_tensor_column(logits, self.class_map['accept'],
-                                               batch_size)
-
-        return self.template_rx_and_sx_implies_tx(last_statement, has_accept_word,
+        return self.template_rx_and_sx_implies_tx(last_statement,
+                                                  has_accept_word,
                                                   state_accept)
 
-    def rule_9(self, logits, data, **unused_kwargs):
+    def rule_9(self, logits, **unused_kwargs):
         """Dialog structure rule.
 
         Rule:
@@ -456,30 +401,21 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
 
         Args:
           logits: logits outputted by a neural model.
-          data: input features used to produce the logits.
 
         Returns:
           A loss incurred by this dialog structure rule.
         """
-        batch_size, dialog_size, _ = logits.shape
+        next_statement = self.predicates['next_statement']
+        state_end = self._get_tensor_column(logits, self.class_map['end'])
+        has_cancel_word = self.predicates['cancel']
+        state_cancel = self._get_tensor_column(logits, self.class_map['cancel'])
 
-        # Creates predicates for differentiable potentials.
-
-        # Creates a (batch_size, dialog_size, dialog_size) cross product matrix
-        # representing the next statements. See docstring of _next_statement
-        # for details.
-        next_statement = self._next_statement(data, batch_size, dialog_size)
-        state_cancel = self._get_tensor_column(logits, self.class_map['cancel'],
-                                               batch_size)
-        has_cancel_word = self._has_word(data, batch_size, 'cancel_index')
-        state_end = self._get_tensor_column(logits, self.class_map['end'],
-                                            batch_size)
-
-        return self.template_rxy_and_sy_and_tx_implies_ux(next_statement, state_end,
+        return self.template_rxy_and_sy_and_tx_implies_ux(next_statement,
+                                                          state_end,
                                                           has_cancel_word,
                                                           state_cancel)
 
-    def rule_10(self, logits, data, **unused_kwargs):
+    def rule_10(self, logits, **unused_kwargs):
         """Dialog structure rule.
 
         Rule:
@@ -498,32 +434,21 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
 
         Args:
           logits: logits outputed by a neural model.
-          data: input features used to produce the logits.
 
         Returns:
           A loss incurred by this dialog structure rule.
         """
-        batch_size, dialog_size, _ = logits.shape
-
-        # Creates predicates for differentiable potentials.
-
-        # Creates a (batch_size, dialog_size, dialog_size) cross product matrix
-        # representing the next statements. See docstring of _next_statement
-        # for details.
-        previous_statement = self._previous_statement(data, batch_size, dialog_size)
-        state_second_request = self._get_tensor_column(
-            logits, self.class_map['second_request'], batch_size)
-        has_info_question_word = self._has_word(data, batch_size,
-                                                'info_question_index')
-        state_info_question = self._get_tensor_column(
-            logits, self.class_map['info_question'], batch_size)
+        previous_statement = self.predicates['previous_statement']
+        state_second_request = self._get_tensor_column(logits, self.class_map['second_request'])
+        has_info_question_word = self.predicates['info_question']
+        state_info_question = self._get_tensor_column(logits, self.class_map['info_question'])
 
         return self.template_rxy_and_sy_and_tx_implies_ux(previous_statement,
                                                           state_second_request,
                                                           has_info_question_word,
                                                           state_info_question)
 
-    def rule_11(self, logits, data, **unused_kwargs) -> float:
+    def rule_11(self, logits, **unused_kwargs) -> float:
         """Dialog structure rule.
 
         Rule:
@@ -536,23 +461,19 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
 
         Args:
           logits: logits outputted by a neural model.
-          data: input features used to produce the logits.
 
         Returns:
           A loss incurred by this dialog structure rule.
         """
-        batch_size, _, _ = logits.shape
+        last_statement = self.predicates['last_statement']
+        has_insist_word = self.predicates['insist']
+        state_insist = self._get_tensor_column(logits, self.class_map['insist'])
 
-        # Creates predicates for differentiable potentials.
-        last_statement = self._end_statement(data, batch_size)
-        has_insist_word = self._has_word(data, batch_size, 'insist_index')
-        state_insist = self._get_tensor_column(logits, self.class_map['insist'],
-                                               batch_size)
-
-        return self.template_rx_and_sx_implies_tx(last_statement, has_insist_word,
+        return self.template_rx_and_sx_implies_tx(last_statement,
+                                                  has_insist_word,
                                                   state_insist)
 
-    def rule_12(self, logits, data, **unused_kwargs):
+    def rule_12(self, logits, **unused_kwargs):
         """Dialog structure rule.
 
         Rule:
@@ -573,31 +494,34 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
 
         Args:
           logits: logits outputted by a neural model.
-          data: input features used to produce the logits.
 
         Returns:
           A loss incurred by this dialog structure rule.
         """
-        batch_size, dialog_size, _ = logits.shape
+        previous_statement = self.predicates['previous_statement']
+        state_second_request = self._get_tensor_column(logits, self.class_map['second_request'])
+        has_slot_question_word = self.predicates['slot_question']
+        has_info_question_word = self.predicates['info_question']
+        state_slot_question = self._get_tensor_column(logits, self.class_map['slot_question'])
 
-        # Creates predicates for differentiable potentials.
+        return self.template_rxy_and_sy_and_tx_and_ux_implies_vx(previous_statement,
+                                                                 state_second_request,
+                                                                 has_slot_question_word,
+                                                                 self.soft_not(has_info_question_word),
+                                                                 state_slot_question)
 
-        # Creates a (batch_size, dialog_size, dialog_size) cross product matrix
-        # representing the next statements. See docstring of _next_statement
-        # for details.
-        previous_statement = self._previous_statement(data, batch_size, dialog_size)
-        state_second_request = self._get_tensor_column(
-            logits, self.class_map['second_request'], batch_size)
-        has_slot_question_word = self._has_word(data, batch_size,
-                                                'slot_question_index')
-        has_info_question_word = self._has_word(data, batch_size,
-                                                'info_question_index')
-        state_slot_question = self._get_tensor_column(
-            logits, self.class_map['slot_question'], batch_size)
+    def generate_predicates(self, data: tf.Tensor):
+        self.predicates['first_statement'] = self._first_statement()
+        self.predicates['last_statement'] = self._end_statement(data)
+        self.predicates['previous_statement'] = self._previous_statement(data)
+        self.predicates['next_statement'] = self._next_statement(data)
 
-        return self.template_rxy_and_sy_and_tx_and_ux_implies_vx(
-            previous_statement, state_second_request, has_slot_question_word,
-            self.soft_not(has_info_question_word), state_slot_question)
+        for class_name in self.class_map:
+            index = class_name + '_index'
+            if index not in self.config:
+                continue
+
+            self.predicates[class_name] = self._has_word(data, index)
 
     def compute_total_loss(self, data: tf.Tensor, logits: tf.Tensor) -> float:
         """Calculate the loss for all PSL rules."""
@@ -618,3 +542,6 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
             rules_loss.append(rule_weight * rule_function(**rule_kwargs))
 
         return rules_loss
+
+    def set_batch_size(self, batch_size: float) -> None:
+        self.batch_size = batch_size

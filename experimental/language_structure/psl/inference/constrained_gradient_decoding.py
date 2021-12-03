@@ -73,6 +73,8 @@ class ConstrainedGradientDecoding(AbstractInferenceApplication):
 
     def _satisfy_constraints(self, data: tf.Tensor, labels: tf.Tensor,):
         """Update weights to satisfy constraints while staying close to original weights."""
+        self.constraints.generate_predicates(data)
+
         for _ in range(self.grad_steps):
             with tf.GradientTape() as tape:
                 logits = self.model(data, training=False)

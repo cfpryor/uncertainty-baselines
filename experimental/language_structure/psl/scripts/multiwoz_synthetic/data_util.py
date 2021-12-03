@@ -237,50 +237,40 @@ def _pad_utterance(utterance: Utterance,
 
 
 def _pad_dialog(
-        dialog: Dialog, max_dialog_size: int, max_utterance_size: int
-) -> Tuple[List[List[int]], List[List[int]], List[List[int]], List[List[int]]]:
+        dialog: Dialog, max_dialog_size: int, max_utterance_size: int) -> Tuple[List[List[int]], List[List[int]]]:
     """Pads utterances in a dialog up to max dialog sizes."""
 
-    dialog_usr_input, dialog_usr_mask, dialog_sys_input, dialog_sys_mask = [], [], [], []
+    dialog_usr_input, dialog_sys_input = [], []
 
     for turn in dialog:
         pad_utt, mask = _pad_utterance(turn[0], max_utterance_size)
         dialog_usr_input.append(pad_utt)
-        dialog_usr_mask.append(mask)
 
         pad_utt, mask = _pad_utterance(turn[1], max_utterance_size)
         dialog_sys_input.append(pad_utt)
-        dialog_sys_mask.append(mask)
 
     for _ in range(max_dialog_size - len(dialog)):
         pad_utt, mask = _pad_utterance([], max_utterance_size)
         dialog_usr_input.append(pad_utt)
-        dialog_usr_mask.append(mask)
 
         pad_utt, mask = _pad_utterance([], max_utterance_size)
         dialog_sys_input.append(pad_utt)
-        dialog_sys_mask.append(mask)
 
-    return dialog_usr_input, dialog_usr_mask, dialog_sys_input, dialog_sys_mask
+    return dialog_usr_input, dialog_sys_input
 
 
 def _pad_dialogs(
-        dialogs: List[Dialog], max_dialog_size: int, max_utterance_size: int
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        dialogs: List[Dialog], max_dialog_size: int, max_utterance_size: int) -> Tuple[np.ndarray, np.ndarray]:
     """Pads all dialogs and utterances."""
-    usr_input_sent, usr_input_mask, sys_input_sent, sys_input_mask = [], [], [], []
+    usr_input_sent, sys_input_sent = [], []
 
     for dialog in dialogs:
-        usr_input, usr_mask, sys_input, sys_mask = _pad_dialog(
-            dialog, max_dialog_size, max_utterance_size)
+        usr_input, sys_input = _pad_dialog(dialog, max_dialog_size, max_utterance_size)
 
         usr_input_sent.append(usr_input)
-        usr_input_mask.append(usr_mask)
         sys_input_sent.append(sys_input)
-        sys_input_mask.append(sys_mask)
 
-    return np.array(usr_input_sent), np.array(usr_input_mask), np.array(
-        sys_input_sent), np.array(sys_input_mask),
+    return np.array(usr_input_sent), np.array(sys_input_sent)
 
 
 def _one_hot_string_encoding(labels: List[List[str]],
@@ -300,7 +290,7 @@ def _one_hot_string_encoding(labels: List[List[str]],
 def _pad_one_hot_labels(
         labels: List[List[List[int]]], max_dialog_size: int,
         mapping: Dict[str, int]) -> Tuple[List[List[List[int]]], List[List[int]]]:
-    """Pads one hot encoded lables."""
+    """Pads one hot encoded labels."""
     pad_labels = []
     pad_mask = []
 

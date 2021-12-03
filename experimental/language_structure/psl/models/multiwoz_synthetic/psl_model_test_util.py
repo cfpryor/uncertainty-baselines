@@ -31,7 +31,7 @@ LEARNING_RATE = 0.001
 
 # Data Constants
 DATA_CONFIG = {
-    'batch_size': 128,
+    'batch_size': 4,
     'max_dialog_size': 10,
     'max_utterance_size': 40,
     'class_map': {
