@@ -60,15 +60,8 @@ DATA_CONFIG = {
 
 KWARGS_DICT = {
     'inference.constrained_beam_search_decoding.ConstrainedBeamSearchDecoding':
-        {'num_beams': 3, 'class_rules_mapping': {0: [(7, 1)],
-                                                 1: [(8, 1)],
-                                                 2: [(6, 1)],
-                                                 3: [(0, -1), (1, 1)],
-                                                 4: [(9, 1)],
-                                                 5: [(2, 1), (4, -1), (5, 1)],
-                                                 6: [(10, 1)],
-                                                 7: [(3, 1)],
-                                                 8: [(11, 1)]}},
+        {'num_beams': 3, 'class_rules_parities': [-1, 1, 1, 1, -1, 1, 1, 1, 1, 1, 1, 1],
+         'class_rules_mapping': {0: [7], 1: [8], 2: [6], 3: [0, 1], 4: [9], 5: [2, 4, 5], 6: [10], 7: [3], 8: [11]}},
     'inference.constrained_gradient_decoding.ConstrainedGradientDecoding':
         {'alpha': 0.1, 'grad_steps': 25},
     'inference.unconstrained_inference.UnconstrainedInference':

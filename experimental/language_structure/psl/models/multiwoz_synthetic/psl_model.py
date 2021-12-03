@@ -486,3 +486,6 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
 
     def set_batch_size(self, batch_size: float) -> None:
         self.batch_size = batch_size
+
+    def set_dialog_size(self, dialog_size: float) -> None:
+        self.dialog_size = dialog_size

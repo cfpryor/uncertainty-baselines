@@ -37,14 +37,18 @@ class ConstrainedBeamSearchDecoding(AbstractInferenceApplication):
             raise KeyError('Missing argument: num_beams')
         if 'class_rules_mapping' not in kwargs:
             raise KeyError('Missing argument: class_rules_mapping')
+        if 'class_rules_parities' not in kwargs:
+            raise KeyError('Missing argument: class_rules_parities')
         self.num_beams = kwargs['num_beams']
         self.class_rules_mapping = kwargs['class_rules_mapping']
+        self.class_rules_parities = kwargs['class_rules_parities']
 
         self.beams = []
 
     def predict(self, dataset: tf.Tensor) -> List[tf.Tensor]:
         """Constrained prediction using beam search decoding."""
         self.beams.clear()
+        self.constraints.set_batch_size(1)
         for data_batch, label_batch in dataset:
             self.beams.append(self.batch_predict(data_batch, label_batch))
 
@@ -61,46 +65,56 @@ class ConstrainedBeamSearchDecoding(AbstractInferenceApplication):
             Logits for a batch.
         """
         logits = self.model(data, training=False)
-        return self._beam_search(data, logits)
+        return self._batch_beam_search(data, logits)
 
-    def _beam_search(self, data: tf.Tensor, logits: tf.Tensor) -> tf.Tensor:
+    def _batch_beam_search(self, data: tf.Tensor, logits: tf.Tensor) -> tf.Tensor:
         batch_beams = []
 
-        for index_i in range(len(logits)):
-            batch_beams.append([[[], 0.0]])
-            for distribution in logits[index_i]:
-                candidates = []
-                constrained_distribution = self._update_distribution(index_i, distribution, data, logits, len(logits[index_i]))
-                for index_j in range(len(batch_beams[-1])):
-                    sequence, value = batch_beams[-1][index_j]
-                    for index_k in range(len(constrained_distribution)):
-                        candidates.append([sequence + [index_k], value - math.log(constrained_distribution[index_k])])
-                ordered_candidates = sorted(candidates, key=lambda seq: seq[1])
-                batch_beams[-1] = ordered_candidates[:self.num_beams]
+        for dialog_data, dialog_logits in zip(data, logits):
+            batch_beams.append(self._beam_search(dialog_data, dialog_logits))
+
         return batch_beams
 
-    def _update_distribution(self, index, distribution, data, logits, size):
-        return distribution
-        constraint_losses = self.constraints.compute_all_potential_losses(data, logits)
-        masked_constraint_losses = []
-        base_loss = 0.0
+    def _beam_search(self, dialog_data: tf.Tensor, dialog_logits: tf.Tensor):
+        beams = [[[], 0.0]]
 
-        for constraint_index in range(len(constraint_losses)):
-            previous_mask = self._create_mask(index, size, len(constraint_losses[constraint_index].shape) - 1)
-            current_mask = self._create_mask(index + 1, size, len(constraint_losses[constraint_index].shape) - 1) - previous_mask
+        for utterance_index in range(len(dialog_logits)):
+            candidates = []
+            utterance_logits = dialog_logits[utterance_index] + self._update_distribution(dialog_data, dialog_logits, utterance_index)
+            for index_j in range(len(beams)):
+                sequence, value = beams[index_j]
+                for index_k in range(len(utterance_logits)):
+                    if utterance_logits[index_k] < 0:
+                        candidates.append([sequence + [index_k], value])
+                    else:
+                        candidates.append([sequence + [index_k], value - math.log(utterance_logits[index_k])])
+            ordered_candidates = sorted(candidates, key=lambda seq: seq[1])
+            beams = ordered_candidates[:self.num_beams]
 
-            masked_constraint_losses.append(constraint_losses[constraint_index] * current_mask)
-            rule_index, parity = self.class_rules_mapping[constraint_index]
-            base_loss += parity * tf.reduce_sum(constraint_losses[constraint_index] * previous_mask)
+        return beams
 
-        for class_index in self.class_rules_mapping:
-            for rule_index, parity in self.class_rules_mapping[class_index]:
-                distribution[class_index] += parity * masked_constraint_losses[rule_index]
+    def _update_distribution(self, data, logits, utterance_index):
+        data_tmp = data[:utterance_index + 1]
+        logits_tmp = logits[:utterance_index + 1]
 
-        return distribution + base_loss
+        self.constraints.set_dialog_size(utterance_index + 1)
+        self.constraints.generate_predicates(data_tmp)
 
-    def _create_mask(self, index, size, dimension):
-        mask = tf.constant(([1.0] * index + [0.0] * (size - index)), dtype=tf.float32)
-        if dimension == 2:
-            mask = tf.cast(tf.sequence_mask(mask, size), tf.float32)
-        return mask
+        potential_losses = self.constraints.compute_all_potential_losses(data_tmp, logits_tmp)
+
+        distribution_loss = [0.0] * len(logits[0])
+        for rule_index in range(len(potential_losses)):
+            parity = self.class_rules_parities[rule_index]
+
+            if len(potential_losses[rule_index].shape) == 2:
+                for class_index in self.class_rules_mapping:
+                    distribution_loss[class_index] += parity * tf.reduce_sum(potential_losses[rule_index][:, :-1])
+                    if rule_index in self.class_rules_mapping[class_index]:
+                        distribution_loss[class_index] += parity * tf.reduce_sum(potential_losses[rule_index][:, -1:])
+            else:
+                for class_index in self.class_rules_mapping:
+                    distribution_loss[class_index] += parity * tf.reduce_sum(potential_losses[rule_index][:, :-1, :])
+                    if rule_index in self.class_rules_mapping[class_index]:
+                        distribution_loss[class_index] += parity * tf.reduce_sum(potential_losses[rule_index][:, -1:, :])
+
+        return distribution_loss
