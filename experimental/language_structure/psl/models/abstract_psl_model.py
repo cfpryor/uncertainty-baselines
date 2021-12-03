@@ -180,6 +180,37 @@ class PSLModel(abc.ABC):
         return PSLModel.compute_potential_losses(body, head, logic=logic)
 
     @staticmethod
+    def template_rxy_and_sx_and_ty_implies_uy(
+            r_xy: tf.Tensor,
+            s_x: tf.Tensor,
+            t_y: tf.Tensor,
+            u_y: tf.Tensor,
+            logic: str = 'lukasiewicz') -> float:
+        """Template for R(x,y) & S(x) & T(y) -> U(y).
+
+        Converts s_x, t_y, and u_y into (batch_size, example_size, example_size)
+        tensors, inverts t_y and u_y, and computes the rule loss.
+
+        Args:
+          r_xy: a (batch_size, example_size, example_size) tensor.
+          s_x: a (batch_size, example_size) tensor.
+          t_y: a (batch_size, example_size) tensor.
+          u_y: a (batch_size, example_size) tensor.
+          logic: the type of logic being used.
+
+        Returns:
+          A computed loss for this type of rule.
+        """
+        s_x_matrix = PSLModel._unary_to_binary(s_x, transpose=True)
+        t_y_matrix = PSLModel._unary_to_binary(t_y, transpose=False)
+        u_y_matrix = PSLModel._unary_to_binary(u_y, transpose=False)
+
+        body = [r_xy, s_x_matrix, t_y_matrix]
+        head = u_y_matrix
+
+        return PSLModel.compute_potential_losses(body, head, logic=logic)
+
+    @staticmethod
     def template_rxy_and_sy_and_tx_and_ux_implies_vx(
             r_xy: tf.Tensor,
             s_y: tf.Tensor,

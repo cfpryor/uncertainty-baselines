@@ -40,6 +40,15 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
         self.batch_size = self.config['batch_size']
         self.dialog_size = self.config['max_dialog_size']
 
+    def _get_tensor_column(self, data, index):
+        """Gathers a column in a tensor and reshapes."""
+        return tf.reshape(tf.gather(data, index, axis=-1), [self.batch_size, -1])
+
+    def _has_word(self, data, index):
+        word = self._get_tensor_column(data, self.config[index])
+        word_mapping = tf.equal(word, self.config['includes_word'])
+        return tf.cast(word_mapping, tf.float32)
+
     def _first_statement(self):
         """Creates a (batch_size, dialog_size) first statement mask."""
         return tf.constant([[1.0] + [0.0] * (self.dialog_size - 1)] * self.batch_size)
@@ -49,15 +58,6 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
         end = self._get_tensor_column(data, self.config['mask_index'])
         end_mask = tf.equal(end, self.config['last_utterance_mask'])
         return tf.cast(end_mask, tf.float32)
-
-    def _get_tensor_column(self, data, index):
-        """Gathers a column in a tensor and reshapes."""
-        return tf.reshape(tf.gather(data, index, axis=-1), [self.batch_size, -1])
-
-    def _has_word(self, data, index):
-        word = self._get_tensor_column(data, self.config[index])
-        word_mapping = tf.equal(word, self.config['includes_word'])
-        return tf.cast(word_mapping, tf.float32)
 
     def _previous_statement(self, data):
         """Creates a cross product matrix mask representing the previous statements.
@@ -107,64 +107,6 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
         # utterances have padding (see docstirng for details).
         padding = self._get_tensor_column(data, self.config['mask_index'])
         padding_mask = tf.equal(padding, self.config['utterance_mask'])
-        padding_mask = tf.cast(padding_mask, tf.float32)
-        padding_mask = tf.repeat(padding_mask, self.dialog_size, axis=-1)
-        padding_mask = tf.reshape(padding_mask, [-1, self.dialog_size, self.dialog_size])
-
-        # Creates a (batch_size, dialog_size, dialog_size) tensor indicating what
-        # the previous statements are in a dialog.
-        return off_diagonal_matrix * padding_mask
-
-    def _next_statement(self, data):
-        """Creates a cross product matrix mask representing the next statements.
-
-        Creates a cross product matrix masked to contain only the next statement
-        values. This matrix is max_dialog_size by max_dialog_size.
-
-        For example, given a dialog with three utterances and a single padded
-        utterance, the matrix would look like:
-
-             Utt1 Utt2 Utt3 Pad1
-        Utt1  0    0    0    0
-        Utt2  1    0    0    0
-        Utt3  0    1    0    0
-        Pad1  0    0    0    0
-
-        Here Utt2 is a next statement to Utt1 and Utt3 is the next
-        statement to Utt2.
-
-        To create this matrix, an off diagonal matrix is created:
-
-             Utt1 Utt2 Utt3 Pad1
-        Utt1  0    0    0    0
-        Utt2  1    0    0    0
-        Utt3  0    1    0    0
-        Pad1  0    0    1    0
-
-        And multiplied by a matrix that masks out the padding:
-
-             Utt1 Utt2 Utt3 Pad1
-        Utt1  1    1    1    0
-        Utt2  1    1    1    0
-        Utt3  1    1    1    0
-        Pad1  0    0    0    0
-
-        Args:
-          data: input features used to produce the logits.
-          batch_size: the batch size
-          dialog_size: the length of the dialog
-
-        Returns:
-          A cross product matrix mask containing the next statements.
-        """
-        off_diagonal_matrix = tf.linalg.diag([1.0] * (self.dialog_size - 1), k=-1)
-
-        # Creates a (batch_size, dialog_size, dialog_size) tensor indicating which
-        # utterances have padding (see docstirng for details).
-        padding = self._get_tensor_column(data, self.config['mask_index'])
-        padding_mask = tf.math.logical_or(
-            tf.equal(padding, self.config['utterance_mask']),
-            tf.equal(padding, self.config['last_utterance_mask']))
         padding_mask = tf.cast(padding_mask, tf.float32)
         padding_mask = tf.repeat(padding_mask, self.dialog_size, axis=-1)
         padding_mask = tf.reshape(padding_mask, [-1, self.dialog_size, self.dialog_size])
@@ -386,11 +328,11 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
         """Dialog structure rule.
 
         Rule:
-          NextStatement(S1, S2) & State(S2, 'end') & HasCancelWord(S1)
+          PreviousStatement(S1, S2) & State(S2, 'end') & HasCancelWord(S1)
                                                      -> State(S1, 'cancel')
 
         Meaning:
-          IF: the next utterance is an ending and the current utterance has a cancel
+          IF: the previous utterance is an ending and the current utterance has a cancel
             word.
           THEN: the current utterance is a cancel.
 
@@ -405,12 +347,12 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
         Returns:
           A loss incurred by this dialog structure rule.
         """
-        next_statement = self.predicates['next_statement']
+        previous_statement = self.predicates['previous_statement']
         state_end = self._get_tensor_column(logits, self.class_map['end'])
         has_cancel_word = self.predicates['cancel']
         state_cancel = self._get_tensor_column(logits, self.class_map['cancel'])
 
-        return self.template_rxy_and_sy_and_tx_implies_ux(next_statement,
+        return self.template_rxy_and_sx_and_ty_implies_uy(previous_statement,
                                                           state_end,
                                                           has_cancel_word,
                                                           state_cancel)
@@ -514,7 +456,6 @@ class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
         self.predicates['first_statement'] = self._first_statement()
         self.predicates['last_statement'] = self._end_statement(data)
         self.predicates['previous_statement'] = self._previous_statement(data)
-        self.predicates['next_statement'] = self._next_statement(data)
 
         for class_name in self.class_map:
             index = class_name + '_index'
