@@ -67,7 +67,7 @@ KWARGS_DICT = {
     'inference.unconstrained_inference.UnconstrainedInference':
         {},
     'learning.constrained_regularized_learning.ConstrainedRegularizedLearning':
-        {'epochs': 1},
+        {'epochs': 100},
     'learning.unconstrained_learning.UnconstrainedLearning':
         {'epochs': 1},
     'models.multiwoz_synthetic.psl_model.PSLModelMultiWoZ':
