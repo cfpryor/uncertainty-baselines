@@ -17,12 +17,12 @@
 
 """MultiWoZ Synthetic constants."""
 
-RULE_WEIGHTS = [1.0, 20.0, 5.0, 5.0, 5.0, 10.0, 5.0, 20.0, 5.0, 5.0, 5.0, 10.0]
+RULE_WEIGHTS = [1.0, 20.0, 5.0, 5.0, 5.0, 10.0, 5.0, 15.0, 5.0, 30.0, 5.0, 10.0]
 RULE_NAMES = ('rule_1', 'rule_2', 'rule_3', 'rule_4', 'rule_5', 'rule_6',
               'rule_7', 'rule_8', 'rule_9', 'rule_10', 'rule_11', 'rule_12')
 
 DATA_CONFIG = {
-    'batch_size': 128,
+    'batch_size': 1024,
     'max_dialog_size': 10,
     'max_utterance_size': 40,
     'class_map': {
@@ -63,14 +63,14 @@ KWARGS_DICT = {
         {'num_beams': 3, 'class_rules_parities': [-1, 1, 1, 1, -1, 1, 1, 1, 1, 1, 1, 1],
          'class_rules_mapping': {0: [7], 1: [8], 2: [6], 3: [0, 1], 4: [9], 5: [2, 4, 5], 6: [10], 7: [3], 8: [11]}},
     'inference.constrained_gradient_decoding.ConstrainedGradientDecoding':
-        {'alpha': 0.1, 'grad_steps': 25},
+        {'alpha': 0.1, 'grad_steps': 500},
     'inference.unconstrained_inference.UnconstrainedInference':
         {},
     'learning.constrained_regularized_learning.ConstrainedRegularizedLearning':
         {'epochs': 100},
     'learning.unconstrained_learning.UnconstrainedLearning':
-        {'epochs': 1},
-    'models.multiwoz_synthetic.psl_model.PSLModelMultiWoZ':
+        {'epochs': 100},
+    'models.multiwoz_synthetic.psl_model.PSLModelMultiWoZSynthetic':
         {'rule_weights': RULE_WEIGHTS, 'rule_names': RULE_NAMES, 'config': DATA_CONFIG},
     'scripts.multiwoz_synthetic.model_util':
         {'input_size': [DATA_CONFIG['max_dialog_size'], DATA_CONFIG['max_utterance_size']]},

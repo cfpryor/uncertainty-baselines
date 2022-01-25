@@ -27,8 +27,10 @@ UserSystem = List[Utterance]
 Dialog = List[UserSystem]
 
 
-def prepare_dataset(data, config):
+def prepare_dataset(data_path, config, data=None):
     """Prepares the train and test datasets."""
+    if data is None:
+        data = util.load_json(data_path)
     train_ds = _prepare_dataset_helper(data['train_data'],
                                        data['train_truth_dialog'],
                                        data['vocab_mapping'],
@@ -43,8 +45,11 @@ def prepare_dataset(data, config):
 
 
 def _prepare_dataset_helper(raw_data, raw_labels, vocab_mapping, training, config):
-    data = _add_features(
-        raw_data,
+    data = _pad_dialogs(raw_data,
+                        config['max_dialog_size'],
+                        config['max_utterance_size'])
+    psl_features = _create_psl_features(
+        data[0],
         vocab_mapping=vocab_mapping,
         accept_words=config['accept_words'],
         cancel_words=config['cancel_words'],
@@ -66,24 +71,22 @@ def _prepare_dataset_helper(raw_data, raw_labels, vocab_mapping, training, confi
         pad_utterance_mask=config['pad_utterance_mask'],
         last_utterance_mask=config['last_utterance_mask'],
         mask_index=config['mask_index'])
-    data = _pad_dialogs(data,
-                       config['max_dialog_size'],
-                       config['max_utterance_size'])
     labels = _one_hot_string_encoding(raw_labels,
-                                     config['class_map'])
+                                      config['class_map'])
     labels = _pad_one_hot_labels(labels,
-                                config['max_dialog_size'],
-                                config['class_map'])
-    return util.list_to_dataset(data[0], labels[0], training, config['batch_size'])
+                                 config['max_dialog_size'],
+                                 config['class_map'])
+    return util.list_to_dataset(data[0], labels[0], psl_features, training, config['batch_size'])
 
 
-def _annotate_if_contains_words(utterance: List[int], key_words: List[str],
-                                vocab_mapping: Dict[str, int], word_index: int,
-                                excludes_word: int,
+def _annotate_if_contains_words(features: List[int], utterance: List[int],
+                                key_words: List[str], vocab_mapping: Dict[str, int],
+                                word_index: int, excludes_word: int,
                                 includes_word: int) -> List[int]:
     """Annotates an utterance if it contains at least one word from a list.
 
     Args:
+      features: list of psl features.
       utterance: list of integers of length max utterance size representing a
         sentence.
       key_words: list of strings representing the words being looked for.
@@ -98,25 +101,25 @@ def _annotate_if_contains_words(utterance: List[int], key_words: List[str],
       A utterance of length max utterance size annotated with weither it
       includes/excludes at least one key word.
     """
-    utterance[word_index] = excludes_word
+    features[word_index] = excludes_word
     for word in key_words:
         if vocab_mapping[word] in utterance:
-            utterance[word_index] = includes_word
+            features[word_index] = includes_word
             break
 
-    return utterance
+    return features
 
 
-def _add_features(dialogs: List[Dialog], vocab_mapping: Dict[str, int],
-                 accept_words: List[str], cancel_words: List[str],
-                 end_words: List[str], greet_words: List[str],
-                 info_question_words: List[str], insist_words: List[str],
-                 slot_question_words: List[str], includes_word: int,
-                 excludes_word: int, accept_index: int, cancel_index: int,
-                 end_index: int, greet_index: int, info_question_index: int,
-                 insist_index: int, slot_question_index: int,
-                 utterance_mask: int, pad_utterance_mask: int,
-                 last_utterance_mask: int, mask_index: int) -> List[Dialog]:
+def _create_psl_features(dialogs: List[Dialog], vocab_mapping: Dict[str, int],
+                         accept_words: List[str], cancel_words: List[str],
+                         end_words: List[str], greet_words: List[str],
+                         info_question_words: List[str], insist_words: List[str],
+                         slot_question_words: List[str], includes_word: int,
+                         excludes_word: int, accept_index: int, cancel_index: int,
+                         end_index: int, greet_index: int, info_question_index: int,
+                         insist_index: int, slot_question_index: int,
+                         utterance_mask: int, pad_utterance_mask: int,
+                         last_utterance_mask: int, mask_index: int) -> List[Dialog]:
     """Makes a copy of dialogs and annotates if it contains any special tokens.
 
     This function adds the following features:
@@ -163,73 +166,74 @@ def _add_features(dialogs: List[Dialog], vocab_mapping: Dict[str, int],
     Returns:
       A copy of dialogs with annotations for special tokens included.
     """
-    dialogs_copy = copy.deepcopy(dialogs)
+    features = []
     for index_i in range(len(dialogs)):
         first_padding = True
+        features.append([])
         for index_j in range(len(dialogs[index_i])):
-            # Add null values for features.
-            utterance = [0, 0, 0, 0, 0, 0, 0] + dialogs_copy[index_i][index_j][0]
+            # Add default values for features.
+            utt_features = [0] * 8
+            utterance = dialogs[index_i][index_j]
 
-            # Checks if the utternace in dialog is a padded utterance.
-            utterance[mask_index] = utterance_mask
-            if all(word == 0 for word in dialogs_copy[index_i][index_j][0]):
-                utterance[mask_index] = pad_utterance_mask
+            # Checks if the utterance in dialog is a padded utterance.
+            utt_features[mask_index] = utterance_mask
+            if all(word == 0 for word in utterance):
+                utt_features[mask_index] = pad_utterance_mask
 
                 # Checks if this is the first padding.
                 if first_padding and index_j != 0:
                     # Sets previous statement to last utterance in dialog.
-                    dialogs_copy[index_i][index_j -
-                                          1][0][mask_index] = last_utterance_mask
+                    features[index_i][index_j - 1][mask_index] = last_utterance_mask
                     first_padding = False
             # Check edge case where last utterance is not padding.
-            elif first_padding and index_j == (len(dialogs_copy[index_i]) - 1):
-                utterance[mask_index] = last_utterance_mask
+            elif first_padding and index_j == (len(dialogs[index_i]) - 1):
+                utt_features[mask_index] = last_utterance_mask
 
             # Checks if utterance in dialog contains a known accept word.
-            utterance = _annotate_if_contains_words(utterance, accept_words,
-                                                    vocab_mapping, accept_index,
-                                                    excludes_word, includes_word)
+            utt_features = _annotate_if_contains_words(utt_features, utterance,
+                                                       accept_words, vocab_mapping, accept_index,
+                                                       excludes_word, includes_word)
 
             # Checks if utterance in dialog contains a known cancel word.
-            utterance = _annotate_if_contains_words(utterance, cancel_words,
-                                                    vocab_mapping, cancel_index,
-                                                    excludes_word, includes_word)
+            utt_features = _annotate_if_contains_words(utt_features, utterance,
+                                                       cancel_words, vocab_mapping, cancel_index,
+                                                       excludes_word, includes_word)
 
             # Checks if utterance in dialog contains a known end word.
-            utterance = _annotate_if_contains_words(utterance, end_words,
-                                                    vocab_mapping, end_index,
-                                                    excludes_word, includes_word)
+            utt_features = _annotate_if_contains_words(utt_features, utterance,
+                                                       end_words, vocab_mapping, end_index,
+                                                       excludes_word, includes_word)
 
             # Checks if utterance in dialog contains a known greet word.
-            utterance = _annotate_if_contains_words(utterance, greet_words,
-                                                    vocab_mapping, greet_index,
-                                                    excludes_word, includes_word)
+            utt_features = _annotate_if_contains_words(utt_features, utterance,
+                                                       greet_words, vocab_mapping, greet_index,
+                                                       excludes_word, includes_word)
 
             # Checks if utterance in dialog contains a known info question word.
-            utterance = _annotate_if_contains_words(utterance, info_question_words,
-                                                    vocab_mapping,
-                                                    info_question_index,
-                                                    excludes_word, includes_word)
+            utt_features = _annotate_if_contains_words(utt_features, utterance,
+                                                       info_question_words,
+                                                       vocab_mapping, info_question_index,
+                                                       excludes_word, includes_word)
 
             # Checks if utterance in dialog contains a known insist word.
-            utterance = _annotate_if_contains_words(utterance, insist_words,
-                                                    vocab_mapping, insist_index,
-                                                    excludes_word, includes_word)
+            utt_features = _annotate_if_contains_words(utt_features, utterance,
+                                                       insist_words, vocab_mapping, insist_index,
+                                                       excludes_word, includes_word)
 
             # Checks if utterance in dialog contains a known slot question word.
-            utterance = _annotate_if_contains_words(utterance, slot_question_words,
-                                                    vocab_mapping,
-                                                    slot_question_index,
-                                                    excludes_word, includes_word)
+            utt_features = _annotate_if_contains_words(utt_features, utterance,
+                                                       slot_question_words, vocab_mapping,
+                                                       slot_question_index,
+                                                       excludes_word, includes_word)
 
             # Sets utterance with new features.
-            dialogs_copy[index_i][index_j][0] = utterance
+            features[index_i].append(utt_features)
 
-    return dialogs_copy
+    return features
 
 
 def _pad_utterance(utterance: Utterance,
-                  max_utterance_size: int) -> Tuple[Utterance, List[int]]:
+                   max_utterance_size: int) -> Tuple[Utterance, List[int]]:
     """Pads utterance up to the max utterance size."""
     utt = utterance + [0] * (max_utterance_size - len(utterance))
     mask = [1] * len(utterance) + [0] * (max_utterance_size - len(utterance))
@@ -274,7 +278,7 @@ def _pad_dialogs(
 
 
 def _one_hot_string_encoding(labels: List[List[str]],
-                            mapping: Dict[str, int]) -> List[List[List[int]]]:
+                             mapping: Dict[str, int]) -> List[List[List[int]]]:
     """Converts string labels into one hot encodings."""
     one_hot_labels = []
 

@@ -34,7 +34,7 @@ class AbstractInferenceApplication(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def batch_predict(self, data: tf.Tensor, labels: tf.Tensor) -> tf.Tensor:
+    def batch_predict(self, data: tf.Tensor, labels: tf.Tensor, psl_data: tf.Tensor) -> tf.Tensor:
         pass
 
     @staticmethod

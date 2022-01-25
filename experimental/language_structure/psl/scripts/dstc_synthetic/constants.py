@@ -17,42 +17,24 @@
 
 """DSTC Synthetic constants."""
 
-RULE_WEIGHTS = [1.0, 20.0, 5.0, 5.0, 5.0, 10.0, 5.0, 20.0, 5.0, 5.0, 5.0, 10.0]
-RULE_NAMES = ('rule_1', 'rule_2', 'rule_3', 'rule_4', 'rule_5', 'rule_6',
-              'rule_7', 'rule_8', 'rule_9', 'rule_10', 'rule_11', 'rule_12')
+RULE_WEIGHTS = [1.0]
+RULE_NAMES = ('rule_1')
 
 DATA_CONFIG = {
+    'num_batches': 5,
     'batch_size': 128,
     'max_dialog_size': 10,
     'max_utterance_size': 40,
-    'class_map': {
-        'accept': 0,
-        'cancel': 1,
-        'end': 2,
-        'greet': 3,
-        'info_question': 4,
-        'init_request': 5,
-        'insist': 6,
-        'second_request': 7,
-        'slot_question': 8,
-    },
-    'accept_words': ['yes', 'great'],
-    'cancel_words': ['no'],
-    'end_words': ['thank', 'thanks'],
-    'greet_words': ['hello', 'hi'],
-    'info_question_words': ['address', 'phone'],
-    'insist_words': ['sure', 'no'],
-    'slot_question_words': ['what', '?'],
+    '3': {'sys': [],
+          'usr': []},
+    '7': {'sys': [],
+          'usr': []},
+    '21': {'sys': ["check", "checking", "balance", "savings", "account", "show", "available"],
+           'usr': ["$", "balance", "empty", "account", "savings", "slot", "checking"]},
+    '23': {'sys': [],
+           'usr': ["$", "takes", "found", "takes", "off"]},
     'includes_word': -1,
     'excludes_word': -2,
-    'mask_index': 0,
-    'accept_index': 1,
-    'cancel_index': 2,
-    'end_index': 3,
-    'greet_index': 4,
-    'info_question_index': 5,
-    'insist_index': 6,
-    'slot_question_index': 7,
     'utterance_mask': -1,
     'last_utterance_mask': -2,
     'pad_utterance_mask': -3,

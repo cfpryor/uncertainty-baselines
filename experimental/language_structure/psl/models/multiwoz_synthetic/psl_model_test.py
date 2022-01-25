@@ -20,7 +20,7 @@ import tensorflow as tf
 import scripts.multiwoz_synthetic.data_util as data_util
 import models.multiwoz_synthetic.psl_model_test_util as test_util
 
-from models.multiwoz_synthetic.psl_model import PSLModelMultiWoZ
+from models.multiwoz_synthetic.psl_model import PSLModelMultiWoZSynthetic
 from inference.constrained_gradient_decoding import ConstrainedGradientDecoding
 
 
@@ -42,8 +42,8 @@ class PslRulesTest(tf.test.TestCase):
         self.model_shape = [self.config['max_dialog_size'], self.config['max_utterance_size']]
 
         # Build dataset, constraints, and inference application
-        self.train_ds, self.test_ds = data_util.prepare_dataset(self.data, self.config)
-        self.constraints = PSLModelMultiWoZ([], [], config=self.config)
+        self.train_ds, self.test_ds = data_util.prepare_dataset(None, self.config, data=self.data)
+        self.constraints = PSLModelMultiWoZSynthetic([], [], config=self.config)
         self.inference = ConstrainedGradientDecoding(None, None, alpha=self.alpha, grad_steps=self.grad_steps)
 
         # Seed randomness
@@ -52,14 +52,15 @@ class PslRulesTest(tf.test.TestCase):
     def _run_model(self, rule_names, weights):
         # Set rule functions and rule weights
         self.constraints.set_batch_size(4)
-        for test_features, _ in self.test_ds:
-            self.constraints.generate_predicates(test_features)
+        for _, _, test_psl_features in self.test_ds:
+            self.constraints.generate_predicates(test_psl_features)
         self.constraints.set_rule_functions(self.constraints, rule_names)
         self.constraints.set_rule_weights(self.constraints, weights)
 
         # Set constraints and a fresh neural model
         model = test_util.build_model(self.model_shape)
-        model.fit(self.train_ds, epochs=self.epochs)
+        for train_data, train_labels, _ in self.train_ds:
+            model.fit(train_data, train_labels, batch_size=train_data.shape[0])
         self.inference.set_constraints(self.inference, self.constraints)
         self.inference.set_model(self.inference, model)
 

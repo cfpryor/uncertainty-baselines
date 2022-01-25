@@ -31,12 +31,24 @@ def prepare_dataset(data_dir, config):
     train_data_loader = data_loader.SGDSynthDataset(data_dir, split="train")
     # train_ds = train_data_loader.load(batch_size=32768)
     train_ds = train_data_loader.load(batch_size=1024)
+    # train_ds = _create_psl_features(train_ds, config)
+    analyze_data(train_ds)
 
     test_data_loader = data_loader.SGDSynthDataset(data_dir, split="test")
     # test_ds = test_data_loader.load(batch_size=32768)
     test_ds = test_data_loader.load(batch_size=1024)
+    return train_ds, test_ds
 
-    # analyze_data(train_ds)
+def _create_psl_features(dataset, config):
+    current_batch = 0
+    for batch in dataset:
+        if current_batch == config['num_batches']:
+            break
+
+        batch['psl_features'] = {'a', 1}
+        current_batch += 1
+        break
+
 
 def analyze_data(dataset):
     usr_label_dict = {}
@@ -46,6 +58,9 @@ def analyze_data(dataset):
     last_label = -1
     for batch in dataset:
         for usr_dialogue, sys_dialogue, labels in zip(batch['usr_utt_raw'], batch['sys_utt_raw'], batch['label']):
+            print(usr_dialogue)
+            print(sys_dialogue)
+            return
             if labels[0].numpy() not in state_transitions_dict[0]:
                 state_transitions_dict[0][labels[0].numpy()] = 0
             state_transitions_dict[0][labels[0].numpy()] += 1
@@ -96,20 +111,3 @@ def analyze_data(dataset):
         sorted_word_dict = sorted(word_dict, key=word_dict.get, reverse=True)[:50]
         for word in sorted_word_dict:
             print("Word: %s Count: %d" % (word, word_dict[word]))
-
-def main(data_dir):
-    prepare_dataset(data_dir, {})
-
-def _load_args(args):
-    executable = args.pop(0);
-    if len(args) != 1 or ({'h', 'help'} & {arg.lower().strip().replace('-', '') for arg in args}):
-        print('USAGE: python3 %s <data directory>' % (executable,), file=sys.stderr)
-        sys.exit(1)
-
-    data_dir = args.pop(0)
-
-    return (data_dir,)
-
-if __name__ == '__main__':
-    logs.initLogging()
-    main(*_load_args(sys.argv))

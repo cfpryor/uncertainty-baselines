@@ -12,7 +12,7 @@
 
 import tensorflow as tf
 
-def build_model(input_size):
+def build_model(input_size, learning_rate):
     """Build simple neural model for class prediction."""
     input_layer = tf.keras.layers.Input(input_size)
     hidden_layer_1 = tf.keras.layers.Dense(1024)(input_layer)
@@ -27,7 +27,7 @@ def build_model(input_size):
     model = tf.keras.Model(input_layer, output)
 
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
+        optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
         loss='categorical_crossentropy',
         metrics=['accuracy'])
 

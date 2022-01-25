@@ -19,8 +19,11 @@
 
 import tensorflow as tf
 
+import scripts.util as util
 
-def evaluate(predictions, data, config):
+
+def evaluate(predictions, data_path, config):
+    data = util.load_json(data_path)
     labels = data['test_truth_dialog']
     predictions = tf.math.argmax(tf.concat(predictions, axis=0), axis=-1)
     confusion_matrix = _class_confusion_matrix(predictions, labels, config)

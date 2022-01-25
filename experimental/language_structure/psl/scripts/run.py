@@ -11,7 +11,6 @@
 # Lint as: python3
 
 import logging
-import os
 import random
 import sys
 
@@ -23,7 +22,7 @@ import scripts.util as util
 _SEED_RANGE = 10000000
 
 
-def setup(data_path, experiment_name, constraints_name, learning_name, inference_name):
+def setup(experiment_name, constraints_name, learning_name, inference_name):
     global constants
     global data_util
     global eval_util
@@ -42,22 +41,27 @@ def setup(data_path, experiment_name, constraints_name, learning_name, inference
     logging.info('Seed: %d' % (seed,))
     tf.random.set_seed(seed)
 
-    if not os.path.exists(data_path):
-        raise FileNotFoundError('%s' % (data_path,))
-    data = util.load_json(data_path)
+    return config, constraints_class, learning_class, inference_class
 
-    return data, config, constraints_class, learning_class, inference_class
+def _copy_weights(model):
+    """Copies model weights."""
+    weights_copy = []
+    for layer in model.weights:
+        weights_copy.append(tf.identity(layer))
+    return weights_copy
 
+def _reset_weights(model, weights_copy):
+    model.set_weights(weights_copy)
 
 def main(data_path, experiment_name, constraints_name, learning_name, inference_name):
     logging.info('Begin: Loading Data')
-    data, config, constraints_class, learning_class, inference_class = setup(data_path, experiment_name, constraints_name, learning_name, inference_name)
-    train_ds, test_ds = data_util.prepare_dataset(data, config)
+    config, constraints_class, learning_class, inference_class = setup(experiment_name, constraints_name, learning_name, inference_name)
+    train_ds, test_ds = data_util.prepare_dataset(data_path, config)
     logging.info('End: Loading Data')
 
     logging.info('Begin: Building Neural Model and Constraints')
     neural_model_kwargs = constants.KWARGS_DICT['scripts.' + experiment_name + '.model_util']
-    neural_model = model_util.build_model(**neural_model_kwargs)
+    neural_model = model_util.build_model(**neural_model_kwargs, learning_rate=0.0001)
 
     constraints_kwargs = constants.KWARGS_DICT[constraints_name]
     constraints = constraints_class(**constraints_kwargs)
@@ -69,6 +73,16 @@ def main(data_path, experiment_name, constraints_name, learning_name, inference_
     learning.fit(train_ds)
     logging.info('End: Learning-- %s' % (learning_name,))
 
+    logging.info('Begin: Re-building Neural Model and Constraints')
+    weights_copy = _copy_weights(neural_model)
+    neural_model_kwargs = constants.KWARGS_DICT['scripts.' + experiment_name + '.model_util']
+    neural_model = model_util.build_model(**neural_model_kwargs, learning_rate=0.0001)
+    _reset_weights(neural_model, weights_copy)
+
+    constraints_kwargs = constants.KWARGS_DICT[constraints_name]
+    constraints = constraints_class(**constraints_kwargs)
+    logging.info('End: Re-building Model and Constraints')
+
     logging.info('Begin: Inference-- %s' % (inference_name,))
     inference_kwargs = constants.KWARGS_DICT[inference_name]
     inference = inference_class(neural_model, constraints, **inference_kwargs)
@@ -76,7 +90,7 @@ def main(data_path, experiment_name, constraints_name, learning_name, inference_
     logging.info('End: Inference -- %s' % (inference_name,))
 
     logging.info('Begin: Evaluation')
-    eval_util.evaluate(output, data, config)
+    eval_util.evaluate(output, data_path, config)
     logging.info('End: Evaluation')
 
 

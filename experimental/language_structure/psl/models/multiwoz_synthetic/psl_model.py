@@ -26,8 +26,8 @@ import tensorflow as tf
 from models import abstract_psl_model
 
 
-class PSLModelMultiWoZ(abstract_psl_model.PSLModel):
-    """Defining PSL rules for the MultiWoZ dataset."""
+class PSLModelMultiWoZSynthetic(abstract_psl_model.PSLModel):
+    """Defining PSL rules for the MultiWoZ Synthetic dataset."""
 
     def __init__(self, rule_weights: List[float], rule_names: List[str],
                  **kwargs) -> None:

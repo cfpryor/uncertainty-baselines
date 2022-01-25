@@ -45,23 +45,24 @@ class ConstrainedGradientDecoding(AbstractInferenceApplication):
         self.logits.clear()
         self._copy_weights()
 
-        for data_batch, label_batch in dataset:
-            self.logits.append(self.batch_predict(data_batch, label_batch))
+        for data_batch, label_batch, psl_data_batch in dataset:
+            self.logits.append(self.batch_predict(data_batch, label_batch, psl_data_batch))
         self.weights_copy.clear()
 
         return self.logits
 
-    def batch_predict(self, data: tf.Tensor, labels: tf.Tensor) -> tf.Tensor:
+    def batch_predict(self, data: tf.Tensor, labels: tf.Tensor, psl_data: tf.Tensor) -> tf.Tensor:
         """Batch constrained prediction using gradient decoding.
 
           Args:
             data: input features
             labels: ground truth labels
+            psl_data: psl input features
 
           Returns:
             Logits for a batch.
         """
-        self._satisfy_constraints(data, labels)
+        self._satisfy_constraints(data, labels, psl_data)
 
         batch_logits = self.model(data, training=False)
         self.model.compiled_loss(labels, batch_logits)
@@ -71,14 +72,14 @@ class ConstrainedGradientDecoding(AbstractInferenceApplication):
 
         return batch_logits
 
-    def _satisfy_constraints(self, data: tf.Tensor, labels: tf.Tensor,):
+    def _satisfy_constraints(self, data: tf.Tensor, labels: tf.Tensor, psl_data: tf.Tensor):
         """Update weights to satisfy constraints while staying close to original weights."""
-        self.constraints.generate_predicates(data)
+        self.constraints.generate_predicates(psl_data)
 
         for _ in range(self.grad_steps):
             with tf.GradientTape() as tape:
                 logits = self.model(data, training=False)
-                constraint_loss = self.constraints.compute_total_loss(data, logits)
+                constraint_loss = self.constraints.compute_total_loss(psl_data, logits)
                 weight_loss = tf.reduce_sum([
                     tf.reduce_mean(tf.math.squared_difference(w, w_h))
                     for w, w_h in zip(self.weights_copy, self.model.weights)

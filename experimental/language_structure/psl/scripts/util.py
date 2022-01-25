@@ -31,9 +31,13 @@ def qualified_import(qualified_name):
     return getattr(module, target_name)
 
 
-def list_to_dataset(data, labels, shuffle: bool, batch_size: int) -> tf.data.Dataset:
+def list_to_dataset(data, labels, psl_data, shuffle: bool, batch_size: int) -> tf.data.Dataset:
     """Converts list into tensorflow dataset."""
-    ds = tf.data.Dataset.from_tensor_slices((data, labels))
+    if psl_data is None:
+        ds = tf.data.Dataset.from_tensor_slices((data, labels))
+    else:
+        ds = tf.data.Dataset.from_tensor_slices((data, labels, psl_data))
+
     if shuffle:
         ds = ds.shuffle(buffer_size=len(data))
     ds = ds.batch(batch_size, drop_remainder=True)

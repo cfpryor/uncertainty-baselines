@@ -33,17 +33,19 @@ class ConstrainedRegularizedLearning(AbstractLearningApplication):
     def fit(self, dataset: tf.Tensor) -> None:
         """Constrained learning using gradients."""
         for _ in range(self.epochs):
-            for data_batch, label_batch in dataset:
-                self.batch_fit(data_batch, label_batch)
+            for data_batch, label_batch, psl_data_batch in dataset:
+                self.batch_fit(data_batch, label_batch, psl_data_batch)
+            print({m.name: m.result() for m in self.model.metrics})
 
-    def batch_fit(self, data: tf.Tensor, labels: tf.Tensor) -> None:
+    def batch_fit(self, data: tf.Tensor, labels: tf.Tensor, psl_data: tf.Tensor) -> None:
         """Batch constrained learning using gradients.
 
           Args:
             data: input features
             labels: ground truth labels
+            psl_data: psl input features
         """
-        self.constraints.generate_predicates(data)
+        self.constraints.generate_predicates(psl_data)
 
         with tf.GradientTape() as tape:
             logits = self.model(data, training=True)
@@ -54,6 +56,3 @@ class ConstrainedRegularizedLearning(AbstractLearningApplication):
         gradients = tape.gradient(totalLoss, self.model.trainable_variables)
 
         self.model.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
-        self.model.compiled_metrics.update_state(labels, logits)
-
-        return {m.name: m.result() for m in self.model.metrics}

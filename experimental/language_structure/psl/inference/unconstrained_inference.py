@@ -29,8 +29,12 @@ class UnconstrainedInference(AbstractInferenceApplication):
 
     def predict(self, dataset: tf.Tensor) -> List[tf.Tensor]:
         """Unconstrained prediction."""
-        return self.model.predict(dataset)
+        predictions = []
+        for data_batch, label_batch, psl_data_batch in dataset:
+            predictions.append(self.batch_predict(data_batch, label_batch, psl_data_batch))
 
-    def batch_predict(self, data: tf.Tensor, labels: tf.Tensor) -> tf.Tensor:
+        return predictions
+
+    def batch_predict(self, data: tf.Tensor, labels: tf.Tensor, psl_data: tf.Tensor) -> tf.Tensor:
         """Unconstrained batch prediction."""
-        pass
+        return self.model.predict(data)

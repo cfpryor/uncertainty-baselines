@@ -15,8 +15,6 @@
 
 # Lint as: python3
 """Unconstrained learning."""
-from typing import List
-
 import tensorflow as tf
 from learning.abstract_learning_application import AbstractLearningApplication
 
@@ -27,10 +25,12 @@ class UnconstrainedLearning(AbstractLearningApplication):
     def __init__(self, model, constraints, epochs, **kwargs) -> None:
         super().__init__(model, constraints, epochs, **kwargs)
 
-    def fit(self, dataset) -> List[tf.Tensor]:
+    def fit(self, dataset) -> None:
         """Unconstrained fit."""
-        self.model.fit(dataset, epochs=self.epochs)
+        for _ in range(self.epochs):
+            for data_batch, label_batch, psl_data_batch in dataset:
+                self.batch_fit(data_batch, label_batch, psl_data_batch)
 
-    def batch_fit(self, data: tf.Tensor) -> tf.Tensor:
+    def batch_fit(self, data: tf.Tensor, labels: tf.Tensor, psl_data: tf.Tensor) -> None:
         """Unconstrained batch fit."""
-        pass
+        self.model.fit(data, labels, batch_size=data.shape[0])

@@ -49,38 +49,39 @@ class ConstrainedBeamSearchDecoding(AbstractInferenceApplication):
         """Constrained prediction using beam search decoding."""
         self.beams.clear()
         self.constraints.set_batch_size(1)
-        for data_batch, label_batch in dataset:
-            self.beams.append(self.batch_predict(data_batch, label_batch))
+        for data_batch, label_batch, psl_data_batch in dataset:
+            self.beams.append(self.batch_predict(data_batch, label_batch, psl_data_batch))
 
         return self.beams
 
-    def batch_predict(self, data: tf.Tensor, labels: tf.Tensor) -> tf.Tensor:
+    def batch_predict(self, data: tf.Tensor, labels: tf.Tensor, psl_data: tf.Tesnor) -> tf.Tensor:
         """Batch constrained prediction using beam search decoding.
 
           Args:
             data: input features
             labels: ground truth labels
+            psl_data: psl input features
 
           Returns:
             Logits for a batch.
         """
         logits = self.model(data, training=False)
-        return self._batch_beam_search(data, logits)
+        return self._batch_beam_search(psl_data, logits)
 
-    def _batch_beam_search(self, data: tf.Tensor, logits: tf.Tensor) -> tf.Tensor:
+    def _batch_beam_search(self, psl_data: tf.Tensor, logits: tf.Tensor) -> tf.Tensor:
         batch_beams = []
 
-        for dialog_data, dialog_logits in zip(data, logits):
-            batch_beams.append(self._beam_search(dialog_data, dialog_logits))
+        for dialog_psl_data, dialog_logits in zip(psl_data, logits):
+            batch_beams.append(self._beam_search(dialog_psl_data, dialog_logits))
 
         return batch_beams
 
-    def _beam_search(self, dialog_data: tf.Tensor, dialog_logits: tf.Tensor):
+    def _beam_search(self, dialog_psl_data: tf.Tensor, dialog_logits: tf.Tensor):
         beams = [[[], 0.0]]
 
         for utterance_index in range(len(dialog_logits)):
             candidates = []
-            utterance_logits = dialog_logits[utterance_index] + self._update_distribution(dialog_data, dialog_logits, utterance_index)
+            utterance_logits = dialog_logits[utterance_index] + self._update_distribution(dialog_psl_data, dialog_logits, utterance_index)
             for index_j in range(len(beams)):
                 sequence, value = beams[index_j]
                 for index_k in range(len(utterance_logits)):
@@ -93,14 +94,14 @@ class ConstrainedBeamSearchDecoding(AbstractInferenceApplication):
 
         return beams
 
-    def _update_distribution(self, data, logits, utterance_index):
-        data_tmp = data[:utterance_index + 1]
+    def _update_distribution(self, psl_data, logits, utterance_index):
         logits_tmp = logits[:utterance_index + 1]
+        psl_data_tmp = psl_data[:utterance_index + 1]
 
         self.constraints.set_dialog_size(utterance_index + 1)
-        self.constraints.generate_predicates(data_tmp)
+        self.constraints.generate_predicates(psl_data_tmp)
 
-        potential_losses = self.constraints.compute_all_potential_losses(data_tmp, logits_tmp)
+        potential_losses = self.constraints.compute_all_potential_losses(psl_data_tmp, logits_tmp)
 
         distribution_loss = [0.0] * len(logits[0])
         for rule_index in range(len(potential_losses)):

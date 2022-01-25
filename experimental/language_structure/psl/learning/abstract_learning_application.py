@@ -31,9 +31,9 @@ class AbstractLearningApplication(abc.ABC):
         self.kwargs = kwargs
 
     @abc.abstractmethod
-    def fit(self, dataset) -> List[tf.Tensor]:
+    def fit(self, dataset) -> None:
         pass
 
     @abc.abstractmethod
-    def batch_fit(self, data: tf.Tensor) -> tf.Tensor:
+    def batch_fit(self, data: tf.Tensor, labels: tf.Tensor, psl_data: tf.Tensor) -> None:
         pass
