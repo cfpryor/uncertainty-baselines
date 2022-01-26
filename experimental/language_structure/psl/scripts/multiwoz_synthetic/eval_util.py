@@ -22,7 +22,7 @@ import tensorflow as tf
 import scripts.util as util
 
 
-def evaluate(predictions, data_path, config):
+def evaluate(predictions, data_path, config, dataset=None):
     data = util.load_json(data_path)
     labels = data['test_truth_dialog']
     predictions = tf.math.argmax(tf.concat(predictions, axis=0), axis=-1)

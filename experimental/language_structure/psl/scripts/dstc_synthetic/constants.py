@@ -18,32 +18,45 @@
 """DSTC Synthetic constants."""
 
 RULE_WEIGHTS = [1.0]
-RULE_NAMES = ('rule_1')
+RULE_NAMES = ('rule_1',)
 
 DATA_CONFIG = {
     'num_batches': 5,
-    'batch_size': 128,
-    'max_dialog_size': 10,
-    'max_utterance_size': 40,
-    '3': {'sys': [],
-          'usr': []},
-    '7': {'sys': [],
-          'usr': []},
-    '21': {'sys': ["check", "checking", "balance", "savings", "account", "show", "available"],
-           'usr': ["$", "balance", "empty", "account", "savings", "slot", "checking"]},
-    '23': {'sys': [],
-           'usr': ["$", "takes", "found", "takes", "off"]},
+    'batch_size': 4,
+    'max_dialog_size': 24,
+    'max_utterance_size': 76,
+    'num_labels': 39,
     'includes_word': -1,
     'excludes_word': -2,
     'utterance_mask': -1,
     'last_utterance_mask': -2,
     'pad_utterance_mask': -3,
+    'mask_index': 0,
+    'words': {
+        '21': {
+            'usr': {
+                'index': 1,
+                'words': ["$", "balance", "empty", "account", "savings", "slot", "checking"],
+            },
+            'sys': {
+                'index': 2,
+                'words': ["check", "checking", "balance", "savings", "account", "show", "available"],
+            },
+        },
+        '23': {
+            'usr': {
+                'index': 3,
+                'words': ["$", "takes", "found", "takes", "off"],
+            },
+            'sys': {
+                'index': 4,
+                'words': [],
+            },
+        },
+    },
 }
 
 KWARGS_DICT = {
-    'inference.constrained_beam_search_decoding.ConstrainedBeamSearchDecoding':
-        {'num_beams': 3, 'class_rules_parities': [-1, 1, 1, 1, -1, 1, 1, 1, 1, 1, 1, 1],
-         'class_rules_mapping': {0: [7], 1: [8], 2: [6], 3: [0, 1], 4: [9], 5: [2, 4, 5], 6: [10], 7: [3], 8: [11]}},
     'inference.constrained_gradient_decoding.ConstrainedGradientDecoding':
         {'alpha': 0.1, 'grad_steps': 25},
     'inference.unconstrained_inference.UnconstrainedInference':
@@ -52,8 +65,8 @@ KWARGS_DICT = {
         {'epochs': 100},
     'learning.unconstrained_learning.UnconstrainedLearning':
         {'epochs': 1},
-    'models.multiwoz_synthetic.psl_model.PSLModelMultiWoZ':
+    'models.dstc_synthetic.psl_model.PSLModelDSTCSynthetic':
         {'rule_weights': RULE_WEIGHTS, 'rule_names': RULE_NAMES, 'config': DATA_CONFIG},
-    'scripts.multiwoz_synthetic.model_util':
+    'scripts.dstc_synthetic.model_util':
         {'input_size': [DATA_CONFIG['max_dialog_size'], DATA_CONFIG['max_utterance_size']]},
 }

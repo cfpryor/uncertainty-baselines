@@ -120,7 +120,7 @@ def _create_psl_features(dialogs: List[Dialog], vocab_mapping: Dict[str, int],
                          insist_index: int, slot_question_index: int,
                          utterance_mask: int, pad_utterance_mask: int,
                          last_utterance_mask: int, mask_index: int) -> List[Dialog]:
-    """Makes a copy of dialogs and annotates if it contains any special tokens.
+    """Annotates if it contains any special tokens.
 
     This function adds the following features:
       - Padding Mask (indicator if an utterance is a padding)
