@@ -21,16 +21,18 @@ from typing import List
 import scripts.util as util
 import uncertainty_baselines.datasets.dialog_state_tracking as data_loader
 
-import tensorflow as tf
+
+BATCH_SIZE = 1024
+NUM_BATCHES = 5
 
 def prepare_dataset(data_dir, config):
     """Prepares the train and test datasets."""
     train_data_loader = data_loader.SGDSynthDataset(data_dir, split="train")
-    train_ds = train_data_loader.load(batch_size=32)
+    train_ds = train_data_loader.load(batch_size=BATCH_SIZE)
     train_ds = _create_dataset(train_ds, config, True)
 
     test_data_loader = data_loader.SGDSynthDataset(data_dir, split="test")
-    test_ds = test_data_loader.load(batch_size=32)
+    test_ds = test_data_loader.load(batch_size=BATCH_SIZE)
     test_ds = _create_dataset(test_ds, config, False)
     return train_ds, test_ds
 
@@ -41,7 +43,7 @@ def _create_dataset(dataset, config, training):
     psl_data = []
     for batch in dataset:
         # TODO(connor) - temporary, remove check for real dataset.
-        if current_batch == 2:
+        if current_batch == NUM_BATCHES:
             break
 
         for usr_dialogue, sys_dialogue, raw_usr_dialogue, raw_sys_dialogue, dialogue_labels in zip(batch['usr_utt'], batch['sys_utt'], batch['usr_utt_raw'], batch['sys_utt_raw'], batch['label']):
@@ -128,12 +130,16 @@ def _annotate_if_contains_words(features: List[int], utterance: List[int],
     return features
 
 def analyze_data(dataset):
+    current_batch = 0
     usr_label_dict = {}
     sys_label_dict = {}
     state_transitions_dict = {0: {}, -1: {}}
 
     last_label = -1
     for batch in dataset:
+        if current_batch == NUM_BATCHES:
+            break
+
         for usr_dialogue, sys_dialogue, labels in zip(batch['usr_utt_raw'], batch['sys_utt_raw'], batch['label']):
             if labels[0].numpy() not in state_transitions_dict[0]:
                 state_transitions_dict[0][labels[0].numpy()] = 0
@@ -166,7 +172,8 @@ def analyze_data(dataset):
                     if sys_word not in sys_label_dict[label.numpy()]:
                         sys_label_dict[label.numpy()][sys_word] = 0
                     sys_label_dict[label.numpy()][sys_word] += 1
-        break
+
+        current_batch += 1
 
     for label_name, transition_dict in sorted(state_transitions_dict.items()):
         print("\n\nUser State: %d\n" % (label_name,))
