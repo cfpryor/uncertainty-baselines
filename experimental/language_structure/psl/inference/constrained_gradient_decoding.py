@@ -84,6 +84,7 @@ class ConstrainedGradientDecoding(AbstractInferenceApplication):
                     tf.reduce_mean(tf.math.squared_difference(w, w_h))
                     for w, w_h in zip(self.weights_copy, self.model.weights)
                 ])
+                print("Weight Loss: %0.5f Constraint Loss: %0.5f" % (weight_loss * self.alpha, constraint_loss))
                 loss = constraint_loss + self.alpha * weight_loss
 
             gradients = tape.gradient(loss, self.model.trainable_variables)

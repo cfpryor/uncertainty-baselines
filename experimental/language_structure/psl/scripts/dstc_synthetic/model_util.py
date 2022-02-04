@@ -12,6 +12,7 @@
 
 import tensorflow as tf
 
+
 def build_model(input_size, learning_rate):
     """Build simple neural model for class prediction."""
     input_layer = tf.keras.layers.Input(input_size)

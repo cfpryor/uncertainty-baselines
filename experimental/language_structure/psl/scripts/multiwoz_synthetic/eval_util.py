@@ -22,7 +22,7 @@ import tensorflow as tf
 import scripts.util as util
 
 
-def evaluate(predictions, data_path, config, dataset=None):
+def evaluate(predictions, data_path, dataset, config):
     data = util.load_json(data_path)
     labels = data['test_truth_dialog']
     predictions = tf.math.argmax(tf.concat(predictions, axis=0), axis=-1)
@@ -49,7 +49,7 @@ def _class_confusion_matrix(preds, labels, config):
             for key in class_map:
                 if key == label or key == reverse_class_map[pred.numpy()]:
                     continue
-                class_confusion_matrix_dict[reverse_class_map[pred.numpy()]]['tn'] += 1
+                class_confusion_matrix_dict[key]['tn'] += 1
 
     return class_confusion_matrix_dict
 

@@ -15,48 +15,45 @@
 
 # Lint as: python3
 
-"""MultiWoZ Synthetic evaluation."""
+"""DSTC Synthetic evaluation."""
 
 import tensorflow as tf
 
-import scripts.util as util
 
+def evaluate(predictions, data_path, dataset, config):
+    # tf.print(predictions[0], summarize=-1)
+    predictions = tf.convert_to_tensor(predictions, dtype=tf.float32)
+    confusion_matrix = {index: {'tp': 0, 'tn': 0, 'fp': 0, 'fn': 0} for index in range(config['num_labels'])}
+    confusion_matrix['total'] = {'correct': 0, 'incorrect': 0}
 
-def evaluate(predictions, data_path, config, dataset=None):
-    data = dataset
-    if dataset is None:
-        data = util.load_json(data_path)
+    for (_, batch_labels, _), batch_predictions in zip(dataset, predictions):
+        batch_predictions_index = tf.math.argmax(batch_predictions, axis=-1)
+        batch_labels_index = tf.math.argmax(batch_labels, axis=-1)
+        confusion_matrix = _batch_confusion_matrix(batch_predictions_index, batch_labels_index, confusion_matrix, config)
 
-    print(predictions)
-    return
-    labels = data['test_truth_dialog']
-    predictions = tf.math.argmax(tf.concat(predictions, axis=0), axis=-1)
-    confusion_matrix = _class_confusion_matrix(predictions, labels, config)
     _print_metrics(confusion_matrix)
 
 
-def _class_confusion_matrix(preds, labels, config):
-    class_map = config['class_map']
-    reverse_class_map = {v: k for k, v in class_map.items()}
-    class_confusion_matrix_dict = {key: {'tp': 0, 'tn': 0, 'fp': 0, 'fn': 0} for key, _ in class_map.items()}
-    class_confusion_matrix_dict['total'] = {'correct': 0, 'incorrect': 0}
+def _batch_confusion_matrix(predictions, labels, confusion_matrix, config):
+    for dialogue_predictions, dialogue_labels in zip(predictions, labels):
+        for utterance_prediction, utterance_label in zip(dialogue_predictions, dialogue_labels):
+            if utterance_label.numpy() == 0:
+                break
 
-    for pred_list, label_list in zip(preds, labels):
-        for pred, label in zip(pred_list, label_list):
-            if class_map[label] == pred:
-                class_confusion_matrix_dict['total']['correct'] += 1
-                class_confusion_matrix_dict[label]['tp'] += 1
+            if utterance_prediction == utterance_label:
+                confusion_matrix['total']['correct'] += 1
+                confusion_matrix[utterance_label.numpy()]['tp'] += 1
             else:
-                class_confusion_matrix_dict['total']['incorrect'] += 1
-                class_confusion_matrix_dict[label]['fp'] += 1
-                class_confusion_matrix_dict[reverse_class_map[pred.numpy()]]['fn'] += 1
+                confusion_matrix['total']['incorrect'] += 1
+                confusion_matrix[utterance_label.numpy()]['fp'] += 1
+                confusion_matrix[utterance_prediction.numpy()]['fn'] += 1
 
-            for key in class_map:
-                if key == label or key == reverse_class_map[pred.numpy()]:
+            for index in range(config['num_labels']):
+                if index == utterance_label or index == utterance_prediction:
                     continue
-                class_confusion_matrix_dict[reverse_class_map[pred.numpy()]]['tn'] += 1
+                confusion_matrix[index]['tn'] += 1
 
-    return class_confusion_matrix_dict
+    return confusion_matrix
 
 
 def _precision_recall_f1(confusion_matrix):
@@ -88,6 +85,6 @@ def _print_metrics(confusion_matrix):
             continue
         precision, recall, f1 = _precision_recall_f1(value)
 
-        print("Class: %s Precision: %0.4f  Recall: %0.4f  F1: %0.4f" % (key.ljust(15), precision, recall, f1))
+        print("Class: %s Precision: %0.4f  Recall: %0.4f  F1: %0.4f" % (str(key).ljust(15), precision, recall, f1))
         values.append(str(precision) + "," + str(recall) + "," + str(f1))
     return values, cat_accuracy

@@ -27,7 +27,8 @@ class UnconstrainedLearning(AbstractLearningApplication):
 
     def fit(self, dataset) -> None:
         """Unconstrained fit."""
-        for _ in range(self.epochs):
+        for epoch in range(self.epochs):
+            print("Epoch: %d" % (epoch,))
             for data_batch, label_batch, psl_data_batch in dataset:
                 self.batch_fit(data_batch, label_batch, psl_data_batch)
 

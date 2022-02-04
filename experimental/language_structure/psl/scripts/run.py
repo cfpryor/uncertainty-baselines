@@ -90,7 +90,7 @@ def main(data_path, experiment_name, constraints_name, learning_name, inference_
     logging.info('End: Inference -- %s' % (inference_name,))
 
     logging.info('Begin: Evaluation')
-    eval_util.evaluate(output, data_path, config, dataset=test_ds)
+    eval_util.evaluate(output, data_path, test_ds, config)
     logging.info('End: Evaluation')
 
 
