@@ -21,11 +21,16 @@ from typing import List
 import scripts.util as util
 import uncertainty_baselines.datasets.dialog_state_tracking as data_loader
 
+import numpy as np
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_selection import chi2
 
 def prepare_dataset(data_dir, config):
     """Prepares the train and test datasets."""
     train_data_loader = data_loader.SGDSynthDataset(data_dir, split="train")
     train_ds = train_data_loader.load(batch_size=config['batch_size'])
+    # analyze_data(train_ds, config)
     train_ds = _create_dataset(train_ds, config, True)
 
     test_data_loader = data_loader.SGDSynthDataset(data_dir, split="test")
@@ -68,12 +73,11 @@ def _create_psl_features(dialogue, config):
     features = []
     for index_i in range(len(dialogue[0])):
         # Add default values for features.
-        features.append([0] * 5)
+        features.append([0] * (len(config['words']) * 2 + 1))
 
         # Checks if the utterance in dialog is a padded utterance.
         features[-1][config['mask_index']] = config['utterance_mask']
         if dialogue[0][index_i].numpy() == b'' and dialogue[1][index_i].numpy() == b'':
-            # print(dialogue[0][index_i].numpy(), dialogue[1][index_i])
             features[-1][config['mask_index']] = config['pad_utterance_mask']
 
             # Checks if this is the first padding.
@@ -132,6 +136,9 @@ def analyze_data(dataset, config):
     sys_label_dict = {}
     state_transitions_dict = {0: {}, -1: {}}
 
+    utterances_list = []
+    labels_list = []
+
     last_label = -1
     for batch in dataset:
         if current_batch == config['num_batches']:
@@ -148,6 +155,8 @@ def analyze_data(dataset, config):
                         state_transitions_dict[-1][last_label] = 0
                     state_transitions_dict[-1][last_label] += 1
                     break
+                utterances_list.append(usr_utt.numpy())
+                labels_list.append(label.numpy())
                 if label.numpy() not in state_transitions_dict:
                     state_transitions_dict[label.numpy()] = {}
 
@@ -189,3 +198,22 @@ def analyze_data(dataset, config):
         sorted_word_dict = sorted(word_dict, key=word_dict.get, reverse=True)[:50]
         for word in sorted_word_dict:
             print("Word: %s Count: %d" % (word, word_dict[word]))
+
+    N = 3
+    tfidf = TfidfVectorizer(sublinear_tf=True, min_df=5,
+                            ngram_range=(1, 2),
+                            stop_words='english')
+
+    features = tfidf.fit_transform(utterances_list).toarray()
+    for index in range(1, 40):
+        features_chi2 = chi2(features, pd.DataFrame(labels_list) == index)
+        indices = np.argsort(features_chi2[0])
+        feature_names = np.array(tfidf.get_feature_names())[indices]
+        unigrams = [v for v in feature_names if len(v.split(' ')) == 1]
+
+        all_tokens = '' + str(index) + ' '
+        for token_index in range(N):
+            all_tokens += '\'' + unigrams[-(token_index+1)] + '\''
+            if token_index != N-1:
+                all_tokens += ', '
+        print(all_tokens)
