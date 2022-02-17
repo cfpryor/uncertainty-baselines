@@ -17,8 +17,8 @@
 
 """DSTC Synthetic constants."""
 
-RULE_WEIGHTS = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-RULE_NAMES = ('rule_1', 'rule_2', 'rule_3', 'rule_4', 'rule_5', 'rule_6')
+RULE_WEIGHTS = [1.0, 1.0, 1.0, 1.0, 1.0]
+RULE_NAMES = ('rule_1', 'rule_2', 'rule_3', 'rule_4', 'rule_7')
 
 DATA_CONFIG = {
     'num_batches': 10,

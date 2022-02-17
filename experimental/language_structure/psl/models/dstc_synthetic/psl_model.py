@@ -351,6 +351,49 @@ class PSLModelDSTCSynthetic(abstract_psl_model.PSLModel):
 
         return return_loss
 
+    def rule_7(self, logits, **unused_kwargs):
+        """Dialog structure rule.
+
+        Rule:
+          PreviousStatement(U1, U2) & State(U2, PreviousState)
+            & Has_Usr_TFIDF(U1, CurrentState) & Has_Sys_TFIDF(U1, CurrentState)
+            -> State(U1, CurrentState)
+
+        Meaning:
+          IF: the previous utterance belongs to a known state transition,
+              and the current utterance has a known sys tfidf token for the
+              transitioned state.
+          THEN: the utterance is likely to belong to that state.
+
+        Args:
+          logits: logits outputted by a neural model.
+
+        Returns:
+          A loss incurred by this dialog structure rule.
+        """
+        previous_statement = self.predicates['previous_statement']
+        return_loss = None
+        for [current_state_index, previous_state_index] in self.state_transitions:
+            previous_state = self._get_tensor_column(logits, previous_state_index)
+            current_state = self._get_tensor_column(logits, current_state_index)
+            has_usr_tfidf = self.predicates[str(current_state_index) + '_usr_index']
+            has_sys_tfidf = self.predicates[str(current_state_index) + '_sys_index']
+
+            if return_loss is None:
+                return_loss = self.template_rxy_and_sy_and_tx_and_ux_implies_vx(previous_statement,
+                                                                         previous_state,
+                                                                         has_usr_tfidf,
+                                                                         has_sys_tfidf,
+                                                                         current_state)
+            else:
+                return_loss += self.template_rxy_and_sy_and_tx_and_ux_implies_vx(previous_statement,
+                                                                          previous_state,
+                                                                          has_usr_tfidf,
+                                                                          has_sys_tfidf,
+                                                                          current_state)
+
+        return return_loss
+
     def generate_predicates(self, data: tf.Tensor):
         self.predicates['first_statement'] = self._first_statement()
         self.predicates['last_statement'] = self._last_statement(data)
