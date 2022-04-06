@@ -394,6 +394,132 @@ class PSLModelDSTCSynthetic(abstract_psl_model.PSLModel):
 
         return return_loss
 
+    def rule_8(self, logits, **unused_kwargs) -> float:
+        """Dialog structure rule.
+
+        Rule:
+          FirstStatement(U1) & Has_Usr_TFIDF(U1, State) & Has_Sys_TFIDF
+                                -> State(U1, State)
+
+        Meaning:
+          IF: the utterance is the first utterance in a dialog and it has
+              a known tf-idf word in both user and system utterance.
+          THEN: the utterance is likely to belong to a start State.
+
+        Args:
+          logits: logits outputted by a neural model.
+
+        Returns:
+          A loss incurred by this dialog structure rule.
+        """
+        first_statement = self.predicates['first_statement']
+
+        current_state = self._get_tensor_column(logits, 3)
+        has_usr_tfidf = self.predicates['3_usr_index']
+        has_sys_tfidf = self.predicates['3_sys_index']
+        return_loss = self.template_rx_and_sx_and_tx_implies_ux(first_statement,
+                                                                has_usr_tfidf,
+                                                                has_sys_tfidf,
+                                                                current_state)
+
+        current_state = self._get_tensor_column(logits, 7)
+        has_usr_tfidf = self.predicates['7_usr_index']
+        has_sys_tfidf = self.predicates['7_sys_index']
+        return_loss += self.template_rx_and_sx_and_tx_implies_ux(first_statement,
+                                                                 has_usr_tfidf,
+                                                                 has_sys_tfidf,
+                                                                 current_state)
+
+        current_state = self._get_tensor_column(logits, 21)
+        has_usr_tfidf = self.predicates['21_usr_index']
+        has_sys_tfidf = self.predicates['21_sys_index']
+        return_loss += self.template_rx_and_sx_and_tx_implies_ux(first_statement,
+                                                                 has_usr_tfidf,
+                                                                 has_sys_tfidf,
+                                                                 current_state)
+
+        return return_loss
+
+    def rule_9(self, logits, **unused_kwargs) -> float:
+        """Dialog structure rule.
+
+        Rule:
+          LastStatement(U1) & Has_Usr_TFIDF(U1, State) & Has_Sys_TFIDF
+                                -> State(U1, State)
+
+        Meaning:
+          IF: the utterance is the first utterance in a dialog and it has
+              a known tf-idf word in both user and system utterance.
+          THEN: the utterance is likely to belong to a end State.
+
+        Args:
+          logits: logits outputted by a neural model.
+
+        Returns:
+          A loss incurred by this dialog structure rule.
+        """
+        last_statement = self.predicates['last_statement']
+
+        current_state = self._get_tensor_column(logits, 5)
+        has_usr_tfidf = self.predicates['5_usr_index']
+        has_sys_tfidf = self.predicates['5_sys_index']
+        return_loss = self.template_rx_and_sx_and_tx_implies_ux(last_statement,
+                                                                has_usr_tfidf,
+                                                                has_sys_tfidf,
+                                                                current_state)
+
+        current_state = self._get_tensor_column(logits, 12)
+        has_usr_tfidf = self.predicates['12_usr_index']
+        has_sys_tfidf = self.predicates['12_sys_index']
+        return_loss += self.template_rx_and_sx_and_tx_implies_ux(last_statement,
+                                                                 has_usr_tfidf,
+                                                                 has_sys_tfidf,
+                                                                 current_state)
+
+        current_state = self._get_tensor_column(logits, 15)
+        has_usr_tfidf = self.predicates['15_usr_index']
+        has_sys_tfidf = self.predicates['15_sys_index']
+        return_loss += self.template_rx_and_sx_and_tx_implies_ux(last_statement,
+                                                                 has_usr_tfidf,
+                                                                 has_sys_tfidf,
+                                                                 current_state)
+
+        return return_loss
+
+    def rule_10(self, logits, **unused_kwargs):
+        """Dialog structure rule.
+
+        Rule:
+         Has_Usr_TFIDF(U1, CurrentState) & Has_Sys_TFIDF(U1, CurrentState)
+            -> State(U1, CurrentState)
+
+        Meaning:
+          IF: the current utterance has a known sys or usr tfidf token.
+          THEN: the utterance is likely to belong to that state.
+
+        Args:
+          logits: logits outputted by a neural model.
+
+        Returns:
+          A loss incurred by this dialog structure rule.
+        """
+        return_loss = None
+        for state in self.config['words']:
+            current_state = self._get_tensor_column(logits, int(state))
+            has_usr_tfidf = self.predicates[state + '_usr_index']
+            has_sys_tfidf = self.predicates[state + '_sys_index']
+
+            if return_loss is None:
+                return_loss = self.template_rx_and_sx_implies_tx(has_usr_tfidf,
+                                                                 has_sys_tfidf,
+                                                                 current_state)
+            else:
+                return_loss += self.template_rx_and_sx_implies_tx(has_usr_tfidf,
+                                                                  has_sys_tfidf,
+                                                                  current_state)
+
+        return return_loss
+
     def generate_predicates(self, data: tf.Tensor):
         self.predicates['first_statement'] = self._first_statement()
         self.predicates['last_statement'] = self._last_statement(data)

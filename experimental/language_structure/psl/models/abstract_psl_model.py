@@ -122,6 +122,29 @@ class PSLModel(abc.ABC):
         return PSLModel.compute_potential_losses(body, head, logic=logic)
 
     @staticmethod
+    def template_rx_and_sx_and_tx_implies_ux(r_x: tf.Tensor,
+                                             s_x: tf.Tensor,
+                                             t_x: tf.Tensor,
+                                             u_x: tf.Tensor,
+                                             logic: str = 'lukasiewicz') -> float:
+        """Template for R(x) & S(x) -> T(x).
+
+        Args:
+          r_x: a (batch_size, example_size) tensor.
+          s_x: a (batch_size, example_size) tensor.
+          t_x: a (batch_size, example_size) tensor.
+          u_x: a (batch_size, example_size) tensor.
+          logic: the type of logic being used.
+
+        Returns:
+          A computed loss for this type of rule.
+        """
+        body = [r_x, s_x, t_x]
+        head = u_x
+
+        return PSLModel.compute_potential_losses(body, head, logic=logic)
+
+    @staticmethod
     def template_rxy_and_sy_implies_tx(r_xy: tf.Tensor,
                                        s_y: tf.Tensor,
                                        t_x: tf.Tensor,
