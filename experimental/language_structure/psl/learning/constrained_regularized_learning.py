@@ -49,10 +49,11 @@ class ConstrainedRegularizedLearning(AbstractLearningApplication):
 
         with tf.GradientTape() as tape:
             logits = self.model(data, training=True)
-            constraint_loss = self.constraints.compute_total_loss(data, logits)
+            constraint_loss = self.constraints.compute_loss(data, logits)
             loss = self.model.compiled_loss(labels, logits, regularization_losses=self.model.losses)
             totalLoss = loss + constraint_loss
+            # tf.print(loss, constraint_loss)
 
-        gradients = tape.gradient(totalLoss, self.model.trainable_variables)
+        gradients = tape.gradient(constraint_loss, self.model.trainable_variables)
 
         self.model.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))

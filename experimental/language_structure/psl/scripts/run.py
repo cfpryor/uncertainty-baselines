@@ -61,7 +61,7 @@ def main(data_path, experiment_name, constraints_name, learning_name, inference_
 
     logging.info('Begin: Building Neural Model and Constraints')
     neural_model_kwargs = constants.KWARGS_DICT['scripts.' + experiment_name + '.model_util']
-    neural_model = model_util.build_model(**neural_model_kwargs, learning_rate=0.0001)
+    neural_model = model_util.build_model(**neural_model_kwargs, learning_rate=constants.MODEL_CONFIG['learning_rate'], loss=constants.MODEL_CONFIG['loss'])
 
     constraints_kwargs = constants.KWARGS_DICT[constraints_name]
     constraints = constraints_class(**constraints_kwargs)
@@ -76,7 +76,7 @@ def main(data_path, experiment_name, constraints_name, learning_name, inference_
     logging.info('Begin: Re-building Neural Model and Constraints')
     weights_copy = _copy_weights(neural_model)
     neural_model_kwargs = constants.KWARGS_DICT['scripts.' + experiment_name + '.model_util']
-    neural_model = model_util.build_model(**neural_model_kwargs, learning_rate=0.0001)
+    neural_model = model_util.build_model(**neural_model_kwargs, learning_rate=constants.MODEL_CONFIG['learning_rate'], loss=constants.MODEL_CONFIG['loss'])
     _reset_weights(neural_model, weights_copy)
 
     constraints_kwargs = constants.KWARGS_DICT[constraints_name]

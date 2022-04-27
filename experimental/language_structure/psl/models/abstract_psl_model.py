@@ -39,18 +39,17 @@ class PSLModel(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def compute_total_loss(self, data: tf.Tensor, logits: tf.Tensor) -> float:
+    def compute_loss(self, data: tf.Tensor, logits: tf.Tensor) -> float:
         pass
 
     @abc.abstractmethod
-    def compute_all_potential_losses(self, data: tf.Tensor, logits: tf.Tensor) -> float:
+    def compute_loss_per_rule(self, data: tf.Tensor, logits: tf.Tensor) -> float:
         pass
 
     @staticmethod
     def compute_potential_losses(body: List[tf.Tensor],
                                  head: tf.Tensor,
-                                 logic: str = 'lukasiewicz',
-                                 mask = None) -> float:
+                                 logic: str = 'lukasiewicz') -> float:
         """Calculates loss for a soft rule."""
         body, head = PSLModel.soft_imply(body, head, logic=logic)
 
